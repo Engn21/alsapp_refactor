@@ -1,0 +1,17 @@
+{
+  "list": [
+    {
+      "dt": 1696512000,
+      "main": {"temp": 289.5, "feels_like": 288.7, "humidity": 70},
+      "weather": [{"main": "Clouds", "description": "broken clouds"}],
+      "wind": {"speed": 3.5}
+    },
+    {
+      "dt": 1696522800,
+      "main": {"temp": 290.1, "feels_like": 289.6, "humidity": 75},
+      "weather": [{"main": "Clouds", "description": "overcast clouds"}],
+      "wind": {"speed": 4.0}
+    }
+  ],
+  "city": {"name": "Istanbul", "timezone": 10800}
+}
