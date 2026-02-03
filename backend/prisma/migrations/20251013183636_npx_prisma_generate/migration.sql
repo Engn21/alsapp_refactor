@@ -1,0 +1,14 @@
+-- AlterTable
+ALTER TABLE "Crop" ALTER COLUMN "specificType" SET DATA TYPE TEXT,
+ALTER COLUMN "healthStatus" SET DATA TYPE TEXT;
+
+-- AlterTable
+ALTER TABLE "HoneyLog" ALTER COLUMN "qualityGrade" SET DATA TYPE TEXT;
+
+-- AlterTable
+ALTER TABLE "Livestock" ALTER COLUMN "specificType" SET DATA TYPE TEXT,
+ALTER COLUMN "healthStatus" SET DATA TYPE TEXT,
+ALTER COLUMN "vaccineStatus" SET DATA TYPE TEXT;
+
+-- AlterTable
+ALTER TABLE "WoolLog" ALTER COLUMN "qualityGrade" SET DATA TYPE TEXT;

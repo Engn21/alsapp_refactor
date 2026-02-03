@@ -1,0 +1,279 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  fullName   String?
+  role       Role     @default(farmer)
+  createdAt  DateTime @default(now())
+  crops      Crop[]
+  livestock  Livestock[]
+  listings   MarketListing[]
+  notifications Notification[]
+}
+
+enum Role {
+  farmer
+  ministry
+}
+
+model Crop {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cropType     String
+  specificType String?
+  plantingDate DateTime
+  harvestDate  DateTime?
+  notes        String?
+  areaHectares Float?
+  pesticide    String?
+  createdAt    DateTime @default(now())
+  sprays       CropSpray[]
+  harvests     CropHarvest[]
+  qualityLogs  CropQualityLog[]
+  nextSprayDueAt   DateTime?
+  lastSprayAlertAt DateTime?
+  proteinPercent   Float?
+  moisturePercent  Float?
+  sugarPercent     Float?
+  oilPercent       Float?
+  healthStatus     String?
+  diseaseNotes     String?
+  qualityScore     Int?
+  customMetrics    Json?
+  metrics       CropMetric[]
+
+  @@index([userId, plantingDate])
+}
+
+model Livestock {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  animalType String
+  specificType String?
+  breed      String?
+  birthDate  DateTime?
+  notes      String?
+  createdAt  DateTime @default(now())
+  milkLogs   MilkLog[]
+  eggLogs    EggLog[]
+  honeyLogs  HoneyLog[]
+  woolLogs   WoolLog[]
+  weightLogs WeightLog[]
+  lastMilkAlertAt DateTime?
+  weightKg   Float?
+  healthStatus String?
+  dailyFeedKg Float?
+  vaccineStatus String?
+  lastCheckupDate DateTime?
+  customMetrics Json?
+  metrics     LivestockMetric[]
+
+  @@index([userId, birthDate])
+}
+
+model CropSpray {
+  id         String   @id @default(uuid())
+  cropId     String
+  crop       Crop     @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  sprayedAt  DateTime @default(now())
+  pesticide  String?
+  createdAt  DateTime @default(now())
+
+  @@index([cropId, sprayedAt])
+}
+
+model CropHarvest {
+  id              String   @id @default(uuid())
+  cropId          String
+  crop            Crop     @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  harvestedAt     DateTime @default(now())
+  amountTon       Float
+  yieldTonPerHa   Float?
+  createdAt       DateTime @default(now())
+
+  @@index([cropId, harvestedAt])
+}
+
+model MilkLog {
+  id           String   @id @default(uuid())
+  livestockId  String
+  livestock    Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+  measuredAt   DateTime @default(now())
+  quantityL    Float
+  fatPercent   Float?
+  createdAt    DateTime @default(now())
+
+  @@index([livestockId, measuredAt])
+}
+
+model EggLog {
+  id           String   @id @default(uuid())
+  livestockId  String
+  livestock    Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+  measuredAt   DateTime @default(now())
+  eggCount     Int
+  avgWeightGram Float?
+  createdAt    DateTime @default(now())
+
+  @@index([livestockId, measuredAt])
+}
+
+model HoneyLog {
+  id           String   @id @default(uuid())
+  livestockId  String
+  livestock    Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+  measuredAt   DateTime @default(now())
+  amountKg     Float
+  qualityGrade String?
+  createdAt    DateTime @default(now())
+
+  @@index([livestockId, measuredAt])
+}
+
+model WoolLog {
+  id           String   @id @default(uuid())
+  livestockId  String
+  livestock    Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+  shearedAt    DateTime @default(now())
+  amountKg     Float
+  qualityGrade String?
+  createdAt    DateTime @default(now())
+
+  @@index([livestockId, shearedAt])
+}
+
+model WeightLog {
+  id           String   @id @default(uuid())
+  livestockId  String
+  livestock    Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+  measuredAt   DateTime @default(now())
+  weightKg     Float
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@index([livestockId, measuredAt])
+}
+
+model LivestockMetric {
+  id          String     @id @default(uuid())
+  livestockId String
+  livestock   Livestock  @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+  key         String
+  value       Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([livestockId, key])
+}
+
+model CropQualityLog {
+  id              String   @id @default(uuid())
+  cropId          String
+  crop            Crop     @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  measuredAt      DateTime @default(now())
+  proteinPercent  Float?
+  moisturePercent Float?
+  sugarPercent    Float?
+  oilPercent      Float?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@index([cropId, measuredAt])
+}
+
+model CropMetric {
+  id        String   @id @default(uuid())
+  cropId    String
+  crop      Crop     @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  key       String
+  value     Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cropId, key])
+}
+
+model SupportProgram {
+  id          String   @id @default(uuid())
+  title       String
+  titleEn     String?
+  description String?
+  descriptionEn String?
+  category    String   // 'bitkisel', 'hayvansal', 'kirsal_kalkinma', 'kredi', 'diger'
+  subcategory String?  // 'mazot_gubre', 'tohum', 'sut', 'et', vb.
+  amount      String?  // örn: "1500 TL/dekar", "flexible"
+  amountEn    String?
+  eligibility String?  // Kimler başvurabilir
+  eligibilityEn String?
+  requiredDocs String? // Gerekli belgeler
+  requiredDocsEn String?
+  applicationStart DateTime?
+  applicationDeadline DateTime?
+  link        String?
+  status      String   @default("active") // 'active', 'expired', 'coming_soon'
+  targetCrops String?  // JSON array: ["wheat", "corn"]
+  targetLivestock String? // JSON array: ["cow", "sheep"]
+  region      String?  // Bölgesel ise
+  priority    Int      @default(0) // Sıralama için
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([status])
+  @@index([applicationDeadline])
+}
+
+model WeatherAlert {
+  id        String   @id @default(uuid())
+  alertType String
+  description String?
+  startsAt  DateTime?
+  expiresAt DateTime?
+  region    String?
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model MarketListing {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemType  ItemType
+  itemRef   String
+  price     Decimal? @db.Decimal(12, 2)
+  currency  String   @default("TRY")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  category  String?
+  metadata  Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum ItemType {
+  crop
+  livestock
+}

@@ -1,0 +1,1 @@
+{"root":["../src/index.ts","../src/server.ts","../src/controllers/auth.controller.ts","../src/controllers/crops.controller.ts","../src/controllers/weather.controller.ts","../src/lib/prisma.ts","../src/middleware/auth.ts","../src/middleware/error.ts","../src/routes/auth.ts","../src/routes/crops.ts","../src/routes/weather.ts","../prisma/seed.ts"],"version":"5.9.3"}

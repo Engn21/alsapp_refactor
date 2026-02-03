@@ -1,0 +1,43 @@
+name: frontend
+description: "ALS App Flutter Uygulaması"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+  cupertino_icons: ^1.0.8
+  http: ^1.5.0
+  geolocator: ^10.1.0
+  geocoding: ^2.2.0
+  font_awesome_flutter: ^10.10.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  fl_chart: ^0.66.1
+  url_launcher: ^6.3.0
+
+  # 🌍 Dil desteği için eklenenler
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Eğer resim, ikon vb. eklersen burada tanımla
+  assets:
+    - assets/logo.png
+
+  # 🌐 L10n (Localization) yapılandırması
+  generate: true
