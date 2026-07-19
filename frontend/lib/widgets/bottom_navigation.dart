@@ -8,14 +8,12 @@ import '../l10n/app_localizations.dart';
 class BottomNavigation extends StatefulWidget {
   final int currentIndex;
   final String userId;
-  final String password;
   final int notifications;
 
   const BottomNavigation({
     super.key,
     required this.currentIndex,
     required this.userId,
-    required this.password,
     this.notifications = 0,
   });
 
@@ -26,46 +24,33 @@ class BottomNavigation extends StatefulWidget {
 class _BottomNavigationState extends State<BottomNavigation> {
   late int _selectedIndex = widget.currentIndex;
 
+  // Collapses the stack back down to the root (Dashboard) before pushing
+  // the target tab screen, so the system back button always returns to
+  // Dashboard instead of exiting the app (each tab used to replace the
+  // previous one via pushReplacement, leaving only one route on the stack).
+  void _goTo(Widget screen) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => screen),
+      (route) => route.isFirst,
+    );
+  }
+
   void _go(int index) {
     if (_selectedIndex == index) return;
     setState(() => _selectedIndex = index);
 
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductListScreen(
-              userId: widget.userId, password: widget.password),
-          ),
-        );
+        _goTo(ProductListScreen(userId: widget.userId));
         break;
       case 1:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SupportsListScreen(
-              userId: widget.userId, password: widget.password),
-          ),
-        );
+        _goTo(SupportsListScreen(userId: widget.userId));
         break;
       case 2:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                WeatherScreen(userId: widget.userId, password: widget.password),
-          ),
-        );
+        _goTo(WeatherScreen(userId: widget.userId));
         break;
       default:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DashboardScreen(
-              userId: widget.userId, password: widget.password),
-          ),
-        );
+        _goTo(DashboardScreen(userId: widget.userId));
     }
   }
 

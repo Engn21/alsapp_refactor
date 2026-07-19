@@ -16,6 +16,21 @@ Map<String, dynamic> decodeJwtPayload(String token) {
   return map;
 }
 
+/// Returns true if the token's `exp` claim is in the past, or if the
+/// token can't be decoded at all. Tokens without an `exp` claim are
+/// treated as non-expiring.
+bool isJwtExpired(String token) {
+  try {
+    final claims = decodeJwtPayload(token);
+    final exp = claims['exp'];
+    if (exp is! num) return false;
+    final expiry = DateTime.fromMillisecondsSinceEpoch(exp.toInt() * 1000);
+    return DateTime.now().isAfter(expiry);
+  } catch (_) {
+    return true;
+  }
+}
+
 /// Best-effort extraction with sensible fallbacks.
 /// Adjust keys to match your auth server if needed.
 class JwtProfile {

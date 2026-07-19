@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'l10n/app_localizations.dart';
+import 'navigation.dart';
 
 void main() => runApp(const ALSApp());
 
@@ -27,6 +28,7 @@ class _ALSAppState extends State<ALSApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'ALSApp',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),

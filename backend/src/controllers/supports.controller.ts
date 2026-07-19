@@ -71,7 +71,8 @@ export async function listSupports(req: Request, res: Response) {
     const serialized = programs.map((p) => serializeSupport(p, lang));
     res.json(serialized);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to fetch support programs" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch support programs" });
   }
 }
 
@@ -90,7 +91,8 @@ export async function getSupportDetail(req: Request, res: Response) {
 
     res.json(serializeSupport(program, lang));
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to fetch support program" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch support program" });
   }
 }
 
@@ -109,7 +111,8 @@ export async function getSupportCategories(_req: Request, res: Response) {
 
     res.json(result);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to fetch categories" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch categories" });
   }
 }
 

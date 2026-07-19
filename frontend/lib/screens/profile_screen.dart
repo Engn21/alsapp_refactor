@@ -227,6 +227,7 @@ class ProfileScreen extends StatelessWidget {
                     icon: const Icon(Icons.logout),
                     label: Text(context.tr('Log Out')),
                     onPressed: () {
+                      ApiService.logout();
                       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
                         (route) => false,

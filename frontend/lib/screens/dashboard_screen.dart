@@ -14,12 +14,10 @@ import '../services/support_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userId;
-  final String password;
 
   const DashboardScreen({
     super.key,
     required this.userId,
-    required this.password,
   });
 
   @override
@@ -79,10 +77,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         lon = coords.lon;
       } else {
         debugPrint(
-            '[dashboard] konum alınamadı, varsayılan koordinat kullanılacak.');
+            '[dashboard] could not get location, using default coordinates.');
       }
     } catch (e) {
-      debugPrint('[dashboard] konum hatası: $e');
+      debugPrint('[dashboard] location error: $e');
     }
 
     await Future.wait([
@@ -105,10 +103,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           List<Map<String, dynamic>> merged = List<Map<String, dynamic>>.from(primary);
           if (merged.length < 3) {
             try {
-              final fallback = await SupportService.fetchSupportPrograms(
-                widget.userId,
-                widget.password,
-              );
+              final fallback = await SupportService.fetchSupportPrograms();
               merged = _mergeSupports(merged, fallback.map(_ensureMap).where((m) => m.isNotEmpty).toList());
             } catch (err) {
               debugPrint('[dashboard] fallback supports failed: $err');
@@ -361,7 +356,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           MaterialPageRoute(
             builder: (_) => WeatherScreen(
               userId: widget.userId,
-              password: widget.password,
             ),
           ),
         ),
@@ -576,7 +570,6 @@ Widget _productPreviewCard(
             MaterialPageRoute(
               builder: (_) => ProductListScreen(
                 userId: widget.userId,
-                password: widget.password,
                 focusName: focusName,
               ),
             ),
@@ -733,7 +726,6 @@ Widget _productPreviewCard(
             MaterialPageRoute(
               builder: (_) => SupportsListScreen(
                 userId: widget.userId,
-                password: widget.password,
                 highlightId: support['id']?.toString(),
               ),
             ),
@@ -923,7 +915,7 @@ Widget _productPreviewCard(
                 context,
                 MaterialPageRoute(
                   builder: (_) => WeatherScreen(
-                      userId: widget.userId, password: widget.password),
+                      userId: widget.userId),
                 ),
               ),
             ),
@@ -940,7 +932,7 @@ Widget _productPreviewCard(
                 context,
                 MaterialPageRoute(
                   builder: (_) => WeatherScreen(
-                      userId: widget.userId, password: widget.password),
+                      userId: widget.userId),
                 ),
               ),
             ),
@@ -957,7 +949,7 @@ Widget _productPreviewCard(
                 context,
                 MaterialPageRoute(
                   builder: (_) => WeatherScreen(
-                      userId: widget.userId, password: widget.password),
+                      userId: widget.userId),
                 ),
               ),
             ),
@@ -974,7 +966,7 @@ Widget _productPreviewCard(
                 context,
                 MaterialPageRoute(
                   builder: (_) => WeatherScreen(
-                      userId: widget.userId, password: widget.password),
+                      userId: widget.userId),
                 ),
               ),
             ),
@@ -988,7 +980,6 @@ Widget _productPreviewCard(
                 MaterialPageRoute(
                   builder: (_) => SupportsListScreen(
                     userId: widget.userId,
-                    password: widget.password,
                   ),
                 ),
               );
@@ -1004,7 +995,6 @@ Widget _productPreviewCard(
                 MaterialPageRoute(
                   builder: (_) => ProductListScreen(
                     userId: widget.userId,
-                    password: widget.password,
                   ),
                 ),
               );
@@ -1018,7 +1008,6 @@ Widget _productPreviewCard(
       bottomNavigationBar: BottomNavigation(
         currentIndex: 0,
         userId: widget.userId,
-        password: widget.password,
         notifications: notifCount,
       ),
     );

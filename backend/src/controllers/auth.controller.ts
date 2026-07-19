@@ -2,7 +2,7 @@ import { prisma } from "../lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { AuthedRequest } from "../middleware/auth";
 import { Role } from "@prisma/client";
 
@@ -82,19 +82,23 @@ export async function login(req: Request, res: Response) {
 }
 
 // ---------- ME ----------
-export async function me(req: AuthedRequest, res: Response) {
-  if (!req.user?.id) return res.status(401).json({ message: "Unauthenticated" });
+export async function me(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user?.id) return res.status(401).json({ message: "Unauthenticated" });
 
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.id },
-    select: { id: true, email: true, role: true, fullName: true },
-  });
-  if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, email: true, role: true, fullName: true },
+    });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  return res.json({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    fullName: user.fullName,
-  });
+    return res.json({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      fullName: user.fullName,
+    });
+  } catch (err) {
+    next(err);
+  }
 }

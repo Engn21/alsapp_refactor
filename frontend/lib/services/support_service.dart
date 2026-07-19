@@ -22,29 +22,29 @@ class SupportService {
         .toList();
   }
 
-  /// Destek programlarını döndürür.
-  /// Önce modern `GET /supports` denenir; yoksa legacy `POST /dash` fallback.
-  static Future<List<Map<String, dynamic>>> fetchSupportPrograms(
-    String userId,
-    String password,
-  ) async {
+  /// Returns support programs.
+  /// Tries the modern `GET /supports` first; falls back to legacy `POST /dash`.
+  static Future<List<Map<String, dynamic>>> fetchSupportPrograms() async {
     // 1) Modern endpoint: GET /supports
     try {
-      final r = await http.get(Uri.parse('$_base/supports'));
+      final r = await http
+          .get(Uri.parse('$_base/supports'))
+          .timeout(const Duration(seconds: 15));
       if (r.statusCode == 200) {
         final supports = _parseSupports(jsonDecode(r.body));
         if (supports.isNotEmpty) return supports;
       }
     } catch (_) {
-      // sessiz geç → /dash fallback
+      // ignore and fall through to /dash fallback
     }
 
-    // 2) Legacy endpoint: POST /dash  (body: { id, password })
+    // 2) Legacy endpoint: POST /dash (backend ignores the body; kept for
+    // backward compatibility with older API deployments).
     final r = await http.post(
       Uri.parse('$_base/dash'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'id': userId, 'password': password}),
-    );
+      body: jsonEncode({}),
+    ).timeout(const Duration(seconds: 15));
 
     if (r.statusCode == 200) {
       final supports = _parseSupports(jsonDecode(r.body));
@@ -52,7 +52,7 @@ class SupportService {
     }
 
     if (r.statusCode == 200 || r.statusCode == 404) {
-      // Her iki uç noktadan anlamlı veri yoksa fallback döndür
+      // return the fallback if neither endpoint returned meaningful data
       final demoSupports = _demoSupports();
       if (demoSupports.isNotEmpty) return demoSupports;
     }

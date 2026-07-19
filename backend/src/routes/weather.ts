@@ -1,9 +1,14 @@
 import { Router } from "express";
 import { weather, weatherSummary, weatherDaily } from "../controllers/weather.controller";
+import { weatherLimiter } from "../middleware/rateLimit";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
-// /api/weather  (server.ts bu route'u /api/weather altında mount edecek)
+router.use(requireAuth);
+router.use(weatherLimiter);
+
+// /api/weather (server.ts mounts this route under /api/weather)
 router.post("/", weather);
 router.get("/", weather);
 

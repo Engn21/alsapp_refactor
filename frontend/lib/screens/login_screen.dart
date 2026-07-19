@@ -20,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool loading = false;
 
   Future<void> _login() async {
+    if (loading) return;
     setState(() => loading = true);
     try {
       // ApiService.login returns a JWT string and stores the session.
@@ -38,7 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(
           builder: (_) => DashboardScreen(
             userId: token,            // current code uses this field as token
-            password: password.text,  // keep existing parameter
           ),
         ),
       );

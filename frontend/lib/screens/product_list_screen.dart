@@ -11,12 +11,10 @@ import '../data/type_fields.dart';
 // Lists all products and supports quick add/edit.
 class ProductListScreen extends StatefulWidget {
   final String userId;
-  final String password;
   final String? focusName;
   const ProductListScreen({
     super.key,
     required this.userId,
-    required this.password,
     this.focusName,
   });
 
@@ -235,7 +233,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
               MaterialPageRoute(
                 builder: (context) => DashboardScreen(
                   userId: widget.userId,
-                  password: widget.password,
                 ),
               ),
             );
@@ -247,7 +244,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
       bottomNavigationBar: BottomNavigation(
         currentIndex: 0,
         userId: widget.userId,
-        password: widget.password,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openAddForm,

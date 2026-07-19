@@ -4,14 +4,16 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../utils/jwt.dart'; // decodeJwtPayload & extractProfileFromClaims
+import '../navigation.dart';
+import '../screens/login_screen.dart';
 
 class ApiService {
-  // -------- Base URL (eski davranış + API_BASE_URL desteği) --------
+  // -------- Base URL (legacy behavior + API_BASE_URL support) --------
   static String _normalizeBase(String raw) {
     var v = raw.trim();
-    // sondaki /'ları temizle
+    // strip trailing slashes
     v = v.replaceAll(RegExp(r'/+$'), '');
-    // /api yoksa ekle
+    // add /api if it's missing
     final hasApi = RegExp(r'(^|/)api($|/)').hasMatch(Uri.tryParse(v)?.path ?? '');
     if (!hasApi) v = '$v/api';
     return v;
@@ -25,22 +27,22 @@ class ApiService {
         return 'http://10.0.2.2:8080';
       }
     } catch (_) {
-      // defaultTargetPlatform bazı ortamlarda exception fırlatabiliyor;
-      // bu durumda varsayılan localhost'u kullan.
+      // defaultTargetPlatform can throw on some platforms;
+      // fall back to localhost in that case.
     }
     return ipv4Local;
   }
 
   static String get _baseUrl {
-    // 1) Senin kullandığın anahtar (öncelik)
-    const bUrl = String.fromEnvironment('API_BASE_URL'); // örn: http://127.0.0.1:8080
+    // 1) The key currently in use (takes priority)
+    const bUrl = String.fromEnvironment('API_BASE_URL'); // e.g. http://127.0.0.1:8080
     if (bUrl.isNotEmpty) return _normalizeBase(bUrl);
 
-    // 2) Eski anahtar
+    // 2) Legacy key
     const b = String.fromEnvironment('API_BASE');
     if (b.isNotEmpty) return _normalizeBase(b);
 
-    // 3) Platforma göre default host
+    // 3) Default host based on platform
     return _normalizeBase(_defaultHostForPlatform());
   }
 
@@ -48,6 +50,25 @@ class ApiService {
 
   // -------- Session --------
   static AuthSession? session;
+
+  static void logout() {
+    session = null;
+  }
+
+  // Called when an authenticated request comes back 401 (expired/invalid
+  // token): clears the session and bounces the user to the login screen.
+  static bool _redirectingToLogin = false;
+  static void _handleUnauthorized() {
+    logout();
+    if (_redirectingToLogin) return;
+    final nav = rootNavigatorKey.currentState;
+    if (nav == null) return;
+    _redirectingToLogin = true;
+    nav.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    ).whenComplete(() => _redirectingToLogin = false);
+  }
 
   // -------- Auth --------
   static Future<void> signup(
@@ -66,7 +87,7 @@ class ApiService {
         'fullName': name,
         'role': roleIgnored, // 'farmer' | 'ministry'
       }),
-    );
+    ).timeout(const Duration(seconds: 15));
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Register failed: ${res.statusCode} ${res.body}');
     }
@@ -79,7 +100,7 @@ class ApiService {
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
-    );
+    ).timeout(const Duration(seconds: 15));
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Login failed: ${res.statusCode} ${res.body}');
     }
@@ -87,7 +108,7 @@ class ApiService {
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final token = (data['token'] as String?) ?? '';
 
-    // JWT decode + session doldur (ESKİ AKIŞ)
+    // JWT decode + populate session (LEGACY FLOW)
     try {
       final claims = decodeJwtPayload(token);
       final profile = extractProfileFromClaims(claims);
@@ -107,7 +128,7 @@ class ApiService {
       );
     }
 
-    // Email fallback (ESKİ AKIŞ)
+    // Email fallback (LEGACY FLOW)
     try {
       final s = session;
       if (s != null && !s.email.contains('@')) {
@@ -121,7 +142,7 @@ class ApiService {
       }
     } catch (_) {}
 
-    // /auth/me ile kesinleştir (ESKİ AKIŞ)
+    // Confirm via /auth/me (LEGACY FLOW)
     await fetchMe();
     return token;
   }
@@ -133,7 +154,7 @@ class ApiService {
     final res = await http.get(
       Uri.parse('$_baseUrl/auth/me'),
       headers: {'Authorization': 'Bearer $t'},
-    );
+    ).timeout(const Duration(seconds: 15));
 
     if (res.statusCode == 200) {
       final m = jsonDecode(res.body) as Map<String, dynamic>;
@@ -151,7 +172,11 @@ class ApiService {
 
   // -------- Common headers --------
   static Map<String, String> _authHeader([String? token]) {
-    final t = token ?? session?.token;
+    var t = token ?? session?.token;
+    if (t != null && t.isNotEmpty && isJwtExpired(t)) {
+      logout();
+      t = null;
+    }
     return (t != null && t.isNotEmpty) ? {'Authorization': 'Bearer $t'} : {};
   }
 
@@ -192,7 +217,8 @@ class ApiService {
   // -------- Crops --------
   static Future<List<dynamic>> listCrops({String? token}) async {
     final uri = Uri.parse('$_baseUrl/crops');
-    final res = await http.get(uri, headers: _authHeader(token));
+    final res = await http.get(uri, headers: _authHeader(token)).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode != 200) {
       throw Exception('List crops failed: ${res.statusCode} ${res.body}');
     }
@@ -230,14 +256,15 @@ static Future<void> createCrop({
     uri,
     headers: {..._authHeader(token), 'Content-Type': 'application/json'},
     body: jsonEncode(body),
-  );
+  ).timeout(const Duration(seconds: 15));
+  if (res.statusCode == 401) _handleUnauthorized();
   if (res.statusCode < 200 || res.statusCode >= 300) {
     throw Exception('Create crop failed: ${res.statusCode} ${res.body}');
   }
 }
 
 
-  /// AddProduct (ESKİ DAVRANIŞ)
+  /// AddProduct (LEGACY BEHAVIOR)
   static Future<void> addProduct(Map<String, dynamic> data) async {
     final type = (data['type'] as String? ?? 'crop').toLowerCase();
 
@@ -341,8 +368,9 @@ static Future<void> createCrop({
 // ================= LIVESTOCK (opsiyonel) =================
 static Future<List<dynamic>> listLivestock({String? token}) async {
   final uri = Uri.parse('$_baseUrl/livestock');
-  final res = await http.get(uri, headers: _authHeader(token));
-  if (res.statusCode == 404) return <dynamic>[]; // endpoint yoksa sessizce boş
+  final res = await http.get(uri, headers: _authHeader(token)).timeout(const Duration(seconds: 15));
+  if (res.statusCode == 401) _handleUnauthorized();
+  if (res.statusCode == 404) return <dynamic>[]; // silently empty if the endpoint doesn't exist
   if (res.statusCode != 200) {
     throw Exception('List livestock failed: ${res.statusCode} ${res.body}');
   }
@@ -352,7 +380,8 @@ static Future<List<dynamic>> listLivestock({String? token}) async {
 
   static Future<Map<String, dynamic>> livestockDetail(String id) async {
     final uri = Uri.parse('$_baseUrl/livestock/$id');
-    final res = await http.get(uri, headers: _authHeader());
+    final res = await http.get(uri, headers: _authHeader()).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode != 200) {
       throw Exception('Livestock detail failed: ${res.statusCode} ${res.body}');
     }
@@ -361,7 +390,8 @@ static Future<List<dynamic>> listLivestock({String? token}) async {
 
   static Future<void> deleteLivestock(String id) async {
     final uri = Uri.parse('$_baseUrl/livestock/$id');
-    final res = await http.delete(uri, headers: _authHeader());
+    final res = await http.delete(uri, headers: _authHeader()).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode != 204) {
       throw Exception('Delete livestock failed: ${res.statusCode} ${res.body}');
     }
@@ -383,13 +413,14 @@ static Future<List<dynamic>> listLivestock({String? token}) async {
       uri,
       headers: {..._authHeader(), 'Content-Type': 'application/json'},
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Milk record failed: ${res.statusCode} ${res.body}');
     }
   }
 
-/// Crops + Livestock birlikte (UI için pratik)
+/// Crops + Livestock combined (convenient for the UI)
 static Future<List<dynamic>> listProductsCombined() async {
   List<dynamic> crops = [];
   List<dynamic> animals = [];
@@ -402,7 +433,8 @@ static Future<List<dynamic>> listProductsCombined() async {
 
   static Future<Map<String, dynamic>> cropDetail(String id) async {
     final uri = Uri.parse('$_baseUrl/crops/$id');
-    final res = await http.get(uri, headers: _authHeader());
+    final res = await http.get(uri, headers: _authHeader()).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode != 200) {
       throw Exception('Crop detail failed: ${res.statusCode} ${res.body}');
     }
@@ -411,7 +443,8 @@ static Future<List<dynamic>> listProductsCombined() async {
 
   static Future<void> deleteCrop(String id) async {
     final uri = Uri.parse('$_baseUrl/crops/$id');
-    final res = await http.delete(uri, headers: _authHeader());
+    final res = await http.delete(uri, headers: _authHeader()).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode != 204) {
       throw Exception('Delete crop failed: ${res.statusCode} ${res.body}');
     }
@@ -432,7 +465,8 @@ static Future<List<dynamic>> listProductsCombined() async {
       uri,
       headers: {..._authHeader(), 'Content-Type': 'application/json'},
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Crop spray log failed: ${res.statusCode} ${res.body}');
     }
@@ -452,7 +486,8 @@ static Future<List<dynamic>> listProductsCombined() async {
       uri,
       headers: {..._authHeader(), 'Content-Type': 'application/json'},
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Crop harvest log failed: ${res.statusCode} ${res.body}');
     }
@@ -480,7 +515,8 @@ static Future<List<dynamic>> listProductsCombined() async {
       uri,
       headers: {..._authHeader(), 'Content-Type': 'application/json'},
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Crop quality log failed: ${res.statusCode} ${res.body}');
     }
@@ -524,7 +560,8 @@ static Future<List<dynamic>> listProductsCombined() async {
       uri,
       headers: {..._authHeader(token), 'Content-Type': 'application/json'},
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Create livestock failed: ${res.statusCode} ${res.body}');
     }
@@ -546,7 +583,8 @@ static Future<List<dynamic>> listProductsCombined() async {
       uri,
       headers: {..._authHeader(), 'Content-Type': 'application/json'},
       body: jsonEncode(payload),
-    );
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Update crop failed: ${res.statusCode} ${res.body}');
     }
@@ -569,7 +607,8 @@ static Future<List<dynamic>> listProductsCombined() async {
       uri,
       headers: {..._authHeader(), 'Content-Type': 'application/json'},
       body: jsonEncode(payload),
-    );
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Update livestock failed: ${res.statusCode} ${res.body}');
     }
@@ -643,7 +682,8 @@ static Future<List<dynamic>> listProductsCombined() async {
         queryParameters: {'lat': '$lat', 'lon': '$lon'},
       );
       try {
-        final res = await http.get(uri, headers: _authHeader());
+        final res = await http.get(uri, headers: _authHeader()).timeout(const Duration(seconds: 15));
+        if (res.statusCode == 401) _handleUnauthorized();
         if (res.statusCode == 200) {
           final m = jsonDecode(res.body) as Map<String, dynamic>;
           return _metricsFromOpenWeather(m);
@@ -677,7 +717,8 @@ static Future<List<dynamic>> listProductsCombined() async {
     final uri = Uri.parse('$_baseUrl/weather/summary')
         .replace(queryParameters: {'lat': '$lat', 'lon': '$lon'});
     try {
-      final res = await http.get(uri, headers: _authHeader());
+      final res = await http.get(uri, headers: _authHeader()).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 401) _handleUnauthorized();
       if (res.statusCode == 200) {
         final m = jsonDecode(res.body) as Map<String, dynamic>;
         final s = (m['summary'] ?? m['description'] ?? '').toString().trim();
@@ -733,7 +774,8 @@ static Future<List<dynamic>> listProductsCombined() async {
     };
 
     final uri = Uri.parse('$_baseUrl/supports').replace(queryParameters: queryParams);
-    final res = await http.get(uri, headers: _authHeader(token));
+    final res = await http.get(uri, headers: _authHeader(token)).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
 
     if (res.statusCode == 404) return <dynamic>[];
     if (res.statusCode != 200) {
@@ -748,7 +790,8 @@ static Future<List<dynamic>> listProductsCombined() async {
     final uri = Uri.parse('$_baseUrl/supports/$id').replace(
       queryParameters: {'lang': lang ?? 'tr'},
     );
-    final res = await http.get(uri, headers: _authHeader());
+    final res = await http.get(uri, headers: _authHeader()).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode != 200) {
       throw Exception('Support detail failed: ${res.statusCode} ${res.body}');
     }

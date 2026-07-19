@@ -11,20 +11,25 @@ import dashRoutes from "./routes/dash";
 import notificationRoutes from "./routes/notifications";
 import { errorHandler } from "./middleware/error";
 
-const IS_PROD = process.env.NODE_ENV === "production";
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
 export function createServer() {
+  // Computed inside createServer() (not at module load time): TypeScript
+  // hoists all `import`-derived requires above other top-level code, so
+  // index.ts's dotenv.config() call runs after this module is required.
+  // Reading process.env here (at call time, once index.ts has already
+  // called dotenv.config()) ensures CORS_ORIGINS/NODE_ENV are populated.
+  const IS_PROD = process.env.NODE_ENV === "production";
+  const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   const app = express();
 
-  // CORS (sadece web tarayıcısı için gerekir; mobil native'de yok)
+  // CORS (only needed for the web browser; native mobile doesn't need it)
   app.use(
     cors({
       origin: (origin, cb) => {
-        if (!origin) return cb(null, true); // mobil/native istekler ya da curl
+        if (!origin) return cb(null, true); // mobile/native requests or curl
         if (!IS_PROD) {
           const ok =
             /^http:\/\/localhost:\d+$/.test(origin) ||
@@ -36,7 +41,7 @@ export function createServer() {
       },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-      credentials: false, // cookie kullanmıyorsan true yapma
+      credentials: false, // set true only if you start using cookies
       optionsSuccessStatus: 204,
       preflightContinue: false
     })
@@ -44,13 +49,13 @@ export function createServer() {
 
   app.use(express.json());
 
-  // Basit log (OPTIONS dahil)
+  // Simple request log (includes OPTIONS)
   app.use((req, _res, next) => {
     console.log(`${req.method} ${req.path}`);
     next();
   });
 
-  // Güvenlik başlıkları (XHR akışını bozmadan)
+  // Security headers (without breaking the XHR flow)
   app.use(
     helmet({
       crossOriginEmbedderPolicy: false,
@@ -58,7 +63,7 @@ export function createServer() {
     })
   );
 
-  // ---- ROUTES ---- (güncel akışı aynen korur)
+  // ---- ROUTES ---- (keeps the existing flow as-is)
   app.use("/api/auth", authRoutes);
   app.use("/api/crops", cropRoutes);
   app.use("/api/livestock", livestockRoutes);
@@ -67,7 +72,7 @@ export function createServer() {
   app.use("/api/dash", dashRoutes);
   app.use("/api/notifications", notificationRoutes);
 
-  // Sağlık kontrolü
+  // Health check
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
   // 404
@@ -77,7 +82,7 @@ export function createServer() {
     next(err);
   });
 
-  // Hata yakalayıcı (EN SON)
+  // Error handler (must be LAST)
   app.use(errorHandler);
 
   return app;

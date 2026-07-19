@@ -194,24 +194,32 @@ async function maybeNotifySprayDue(crop: any) {
   }
 }
 
-export async function listCrops(req: AuthedRequest, res: Response) {
-  const owner = req.user?.id;
-  if (!owner) return res.json([]);
+export async function listCrops(
+  req: AuthedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const owner = req.user?.id;
+    if (!owner) return res.json([]);
 
-  const crops = await prisma.crop.findMany({
-    where: { userId: owner },
-    orderBy: { createdAt: "desc" },
-    include: {
-      sprays: { orderBy: { sprayedAt: "desc" }, take: 5 },
-      harvests: { orderBy: { harvestedAt: "desc" }, take: 5 },
-      qualityLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
-      metrics: true,
-    },
-  });
+    const crops = await prisma.crop.findMany({
+      where: { userId: owner },
+      orderBy: { createdAt: "desc" },
+      include: {
+        sprays: { orderBy: { sprayedAt: "desc" }, take: 5 },
+        harvests: { orderBy: { harvestedAt: "desc" }, take: 5 },
+        qualityLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
+        metrics: true,
+      },
+    });
 
-  await Promise.all(crops.map(maybeNotifySprayDue));
+    await Promise.all(crops.map(maybeNotifySprayDue));
 
-  res.json(crops.map(serializeCrop));
+    res.json(crops.map(serializeCrop));
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function getCropDetail(
@@ -654,16 +662,16 @@ export async function recordCropQuality(
       throw Object.assign(new Error("date is invalid"), { status: 400 });
     }
 
-    const proteinPercent = req.body?.proteinPercent
+    const proteinPercent = req.body?.proteinPercent != null
       ? Number.parseFloat(req.body.proteinPercent)
       : null;
-    const moisturePercent = req.body?.moisturePercent
+    const moisturePercent = req.body?.moisturePercent != null
       ? Number.parseFloat(req.body.moisturePercent)
       : null;
-    const sugarPercent = req.body?.sugarPercent
+    const sugarPercent = req.body?.sugarPercent != null
       ? Number.parseFloat(req.body.sugarPercent)
       : null;
-    const oilPercent = req.body?.oilPercent
+    const oilPercent = req.body?.oilPercent != null
       ? Number.parseFloat(req.body.oilPercent)
       : null;
 

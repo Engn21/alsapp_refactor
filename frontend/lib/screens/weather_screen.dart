@@ -12,12 +12,10 @@ import 'dashboard_screen.dart';
 // Detailed weather view with metrics and a map preview.
 class WeatherScreen extends StatefulWidget {
   final String userId;
-  final String password;
 
   const WeatherScreen({
     super.key,
     required this.userId,
-    required this.password,
   });
 
   @override
@@ -133,7 +131,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
             MaterialPageRoute(
               builder: (_) => DashboardScreen(
                 userId: widget.userId,
-                password: widget.password,
               ),
             ),
           ),
@@ -219,7 +216,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
       bottomNavigationBar: BottomNavigation(
         currentIndex: 2,
         userId: widget.userId,
-        password: widget.password,
       ),
     );
   }

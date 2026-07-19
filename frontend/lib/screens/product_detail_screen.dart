@@ -149,8 +149,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final data = _isCrop
           ? await ApiService.cropDetail(id)
           : await ApiService.livestockDetail(id);
+      if (!mounted) return;
       setState(() => detail = data);
     } catch (e) {
+      if (!mounted) return;
       setState(() => error = '$e');
     } finally {
       if (mounted) setState(() => loading = false);
@@ -209,6 +211,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             .showSnackBar(SnackBar(content: Text(context.tr('Saved'))));
       }
     } catch (e) {
+      if (!mounted) return;
       await ApiService.showAlert(
         context,
         context.tr('Save error: {message}', params: {'message': '$e'}),
@@ -239,6 +242,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _sprayDate = null;
       await _load();
     } catch (e) {
+      if (!mounted) return;
       await ApiService.showAlert(
         context,
         context.tr('Save error: {message}', params: {'message': '$e'}),
@@ -277,6 +281,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _harvestDate = null;
       await _load();
     } catch (e) {
+      if (!mounted) return;
       await ApiService.showAlert(
         context,
         context.tr('Save error: {message}', params: {'message': '$e'}),

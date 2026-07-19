@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
 import '../config/api_config.dart';
+import 'api_service.dart';
 
 double? _asDouble(dynamic v) {
   if (v == null) return null;
@@ -18,7 +19,15 @@ class WeatherService {
     connectTimeout: const Duration(seconds: 8),
     receiveTimeout: const Duration(seconds: 8),
     validateStatus: (c) => c != null && c >= 200 && c < 500,
-  ));
+  ))..interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        final token = ApiService.session?.token;
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
+    ));
 
   Map<String, dynamic> _normalizeResponse({
     required double lat,
@@ -96,21 +105,21 @@ class WeatherService {
         }
       }
     } catch (e) {
-      // Günlük endpoint başarısızsa sessizce atla; anlık veriyi döndür.
+      // Silently skip if the daily endpoint fails; return the current data.
       debugPrint('[WeatherService] daily endpoint failed: $e');
     }
 
     return normalized;
   }
 
-  /// Konuma göre backend /api/weather çağrısı yapar ve normalize data döner.
+  /// Calls the backend /api/weather endpoint by location and returns normalized data.
   Future<Map<String, dynamic>> byLocation() async {
-    // Servis açık mı?
+    // Is the location service on?
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw 'Konum servisleri kapalı.';
     }
 
-    // İzinler
+    // Permissions
     var perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
@@ -120,7 +129,7 @@ class WeatherService {
       throw 'Konum izni reddedildi.';
     }
 
-    // Konumu al (10 sn timeout)
+    // Get the location (10s timeout)
     Position pos;
     try {
       pos = await Geolocator.getCurrentPosition(
@@ -141,7 +150,7 @@ class WeatherService {
 
     final data = r.data is String ? jsonDecode(r.data) : r.data;
 
-    // Şehir adı: backend 'name' varsa onu, yoksa reverse geocoding
+    // City name: use backend 'name' if present, otherwise reverse geocoding
     String? city = (data['name'] ?? data['city'])?.toString();
     if (city == null || city.isEmpty) {
       try {

@@ -9,12 +9,10 @@ import 'dashboard_screen.dart';
 // Lists support programs and provides detail navigation.
 class SupportsListScreen extends StatefulWidget {
   final String userId;
-  final String password;
   final String? highlightId;
   const SupportsListScreen({
     super.key,
     required this.userId,
-    required this.password,
     this.highlightId,
   });
 
@@ -35,7 +33,7 @@ class _SupportsListScreenState extends State<SupportsListScreen> {
   // Loads support programs from the backend (or fallback).
   Future<void> _load() async {
     try {
-      final data = await SupportService.fetchSupportPrograms(widget.userId, widget.password);
+      final data = await SupportService.fetchSupportPrograms();
       setState(() => supports = data);
     } catch (e) {
       // ignore; keep empty list
@@ -93,7 +91,6 @@ class _SupportsListScreenState extends State<SupportsListScreen> {
               MaterialPageRoute(
                 builder: (_) => DashboardScreen(
                   userId: widget.userId,
-                  password: widget.password,
                 ),
               ),
             );
@@ -143,7 +140,6 @@ class _SupportsListScreenState extends State<SupportsListScreen> {
       bottomNavigationBar: BottomNavigation(
         currentIndex: 1,
         userId: widget.userId,
-        password: widget.password,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {}, // optional: flag/save
