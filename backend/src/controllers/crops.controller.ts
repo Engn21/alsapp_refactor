@@ -177,12 +177,19 @@ async function maybeNotifySprayDue(crop: any) {
     (crop.lastSprayAlertAt as Date).getTime() === due.getTime();
   if (alreadyAlerted) return;
   if (due.getTime() <= Date.now()) {
+    const pesticideLabel = crop.pesticide ?? "the planned treatment";
     await pushNotification({
       owner: crop.userId,
       title: `Spray due for ${crop.cropType}`,
-      body: `It's time to apply ${
-        crop.pesticide ?? "the planned treatment"
-      } to ${crop.cropType}.`,
+      body: `It's time to apply ${pesticideLabel} to ${crop.cropType}.`,
+      titleKey: "notif.spray.title",
+      titleParams: { cropType: crop.cropType },
+      // Free-text pesticide names aren't translated; falls back to a
+      // generic phrasing (translated) when none was recorded.
+      bodyKey: crop.pesticide
+        ? "notif.spray.body"
+        : "notif.spray.bodyGeneric",
+      bodyParams: { pesticide: pesticideLabel, cropType: crop.cropType },
       category: "crop",
       metadata: { cropId: crop.id },
     });
@@ -324,6 +331,10 @@ export async function createCrop(
       owner,
       title: `New crop added: ${cropType}`,
       body: `We will monitor ${cropType} for spray schedules and yields.`,
+      titleKey: "notif.cropAdded.title",
+      titleParams: { cropType },
+      bodyKey: "notif.cropAdded.body",
+      bodyParams: { cropType },
       category: "crop",
       metadata: { cropId: created.id },
     });
@@ -627,6 +638,13 @@ export async function recordCropHarvest(
         owner: crop.userId,
         title: `Düşük verim: ${crop.cropType}`,
         body: `Hasat verimi ${yieldPerHa.toFixed(2)} t/ha, beklenen minimum ${threshold.minYieldTonPerHa} t/ha.`,
+        titleKey: "notif.lowYield.title",
+        titleParams: { cropType: crop.cropType },
+        bodyKey: "notif.lowYield.body",
+        bodyParams: {
+          yield: yieldPerHa.toFixed(2),
+          min: threshold.minYieldTonPerHa,
+        },
         category: "crop",
         metadata: { cropId: crop.id },
       });
@@ -702,6 +720,7 @@ export async function recordCropQuality(
     const threshold = getCropThreshold(crop.cropType);
     if (threshold) {
       const alerts: string[] = [];
+      const reasonTemplates: { key: string; params: Record<string, unknown> }[] = [];
 
       if (
         proteinPercent != null &&
@@ -712,6 +731,14 @@ export async function recordCropQuality(
         alerts.push(
           `Protein: ${proteinPercent.toFixed(1)}% (ideal: ${threshold.idealProteinPercent.min}-${threshold.idealProteinPercent.max}%)`,
         );
+        reasonTemplates.push({
+          key: "notif.reason.protein",
+          params: {
+            value: proteinPercent.toFixed(1),
+            min: threshold.idealProteinPercent.min,
+            max: threshold.idealProteinPercent.max,
+          },
+        });
       }
 
       if (
@@ -723,6 +750,14 @@ export async function recordCropQuality(
         alerts.push(
           `Nem: ${moisturePercent.toFixed(1)}% (ideal: ${threshold.idealMoisturePercent.min}-${threshold.idealMoisturePercent.max}%)`,
         );
+        reasonTemplates.push({
+          key: "notif.reason.moisture",
+          params: {
+            value: moisturePercent.toFixed(1),
+            min: threshold.idealMoisturePercent.min,
+            max: threshold.idealMoisturePercent.max,
+          },
+        });
       }
 
       if (
@@ -734,6 +769,14 @@ export async function recordCropQuality(
         alerts.push(
           `Şeker: ${sugarPercent.toFixed(1)}% (ideal: ${threshold.idealSugarPercent.min}-${threshold.idealSugarPercent.max}%)`,
         );
+        reasonTemplates.push({
+          key: "notif.reason.sugar",
+          params: {
+            value: sugarPercent.toFixed(1),
+            min: threshold.idealSugarPercent.min,
+            max: threshold.idealSugarPercent.max,
+          },
+        });
       }
 
       if (
@@ -745,6 +788,14 @@ export async function recordCropQuality(
         alerts.push(
           `Yağ: ${oilPercent.toFixed(1)}% (ideal: ${threshold.idealOilPercent.min}-${threshold.idealOilPercent.max}%)`,
         );
+        reasonTemplates.push({
+          key: "notif.reason.oil",
+          params: {
+            value: oilPercent.toFixed(1),
+            min: threshold.idealOilPercent.min,
+            max: threshold.idealOilPercent.max,
+          },
+        });
       }
 
       if (alerts.length > 0) {
@@ -752,6 +803,10 @@ export async function recordCropQuality(
           owner: crop.userId,
           title: `Kalite uyarısı: ${crop.cropType}`,
           body: `Ölçüm sonuçları ideal aralığın dışında: ${alerts.join(", ")}`,
+          titleKey: "notif.qualityWarning.title",
+          titleParams: { cropType: crop.cropType },
+          bodyKey: "notif.qualityWarning.body",
+          bodyParams: { reasons: reasonTemplates },
           category: "crop",
           metadata: { cropId: crop.id, qualityLogId: qualityLog.id },
         });

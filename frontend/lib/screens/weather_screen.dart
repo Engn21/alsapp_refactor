@@ -34,21 +34,30 @@ class _WeatherScreenState extends State<WeatherScreen> {
   String wind = '—';
   double? _lat;
   double? _lon;
+  String? _loadedLang;
 
   @override
-  void initState() {
-    super.initState();
-    _fetch();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lang = Localizations.localeOf(context).languageCode;
+    if (_loadedLang != lang) {
+      _loadedLang = lang;
+      _fetch();
+    }
   }
 
   Future<void> _fetch() async {
     setState(() => loading = true);
     try {
-      final w = await _svc.byLocation();
+      final lang = Localizations.localeOf(context).languageCode;
+      final w = await _svc.byLocation(lang: lang);
       if (!mounted) return;
       setState(() {
         city = (w['city'] ?? '—').toString();
-        final main = (w['status'] ?? '').toString();
+        final mainRaw = (w['status'] ?? '').toString();
+        // OpenWeather's `main` field is a fixed English category code
+        // (Clear/Clouds/Rain/...) - translated client-side via context.tr.
+        final main = mainRaw.isEmpty ? '' : context.tr(mainRaw);
         final desc = (w['description'] ?? '').toString();
         status = [main, desc].where((e) => e.isNotEmpty).join(' • ');
         if (status.trim().isEmpty) status = '—';

@@ -57,7 +57,11 @@ class _BottomNavigationState extends State<BottomNavigation> {
   @override
   Widget build(BuildContext context) {
     return BottomNavigationBar(
-      currentIndex: _selectedIndex,
+      // BottomNavigationBar requires a valid item index (0..items.length-1),
+      // so -1 (meaning "current screen isn't one of these tabs") is clamped
+      // to 0 for display only; _selectedIndex itself stays -1 so the
+      // tap-guard in _go() below doesn't treat any tab as already selected.
+      currentIndex: _selectedIndex < 0 ? 0 : _selectedIndex,
       onTap: _go,
       items: [
         BottomNavigationBarItem(

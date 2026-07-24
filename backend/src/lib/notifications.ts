@@ -7,6 +7,10 @@ function serialize(notification: {
   userId: string;
   title: string;
   body: string;
+  titleKey: string | null;
+  titleParams: Prisma.JsonValue | null;
+  bodyKey: string | null;
+  bodyParams: Prisma.JsonValue | null;
   category: string | null;
   metadata: Prisma.JsonValue | null;
   read: boolean;
@@ -15,8 +19,16 @@ function serialize(notification: {
   return {
     id: notification.id,
     owner: notification.userId,
+    // Plain-text fallback (fixed language) for old clients/rows.
     title: notification.title,
     body: notification.body,
+    // Preferred rendering path: the client looks these up via its own
+    // translation table so the notification reads correctly in whatever
+    // language the viewer currently has selected.
+    titleKey: notification.titleKey ?? undefined,
+    titleParams: notification.titleParams ?? undefined,
+    bodyKey: notification.bodyKey ?? undefined,
+    bodyParams: notification.bodyParams ?? undefined,
     category: notification.category ?? undefined,
     metadata: notification.metadata ?? undefined,
     read: notification.read,
@@ -28,6 +40,10 @@ export async function pushNotification(params: {
   owner: string;
   title: string;
   body: string;
+  titleKey?: string;
+  titleParams?: Record<string, unknown>;
+  bodyKey?: string;
+  bodyParams?: Record<string, unknown>;
   category?: string;
   metadata?: Record<string, unknown>;
 }) {
@@ -35,12 +51,24 @@ export async function pushNotification(params: {
     params.metadata === undefined
       ? undefined
       : (params.metadata as Prisma.InputJsonValue);
+  const titleParams =
+    params.titleParams === undefined
+      ? undefined
+      : (params.titleParams as Prisma.InputJsonValue);
+  const bodyParams =
+    params.bodyParams === undefined
+      ? undefined
+      : (params.bodyParams as Prisma.InputJsonValue);
 
   await prisma.notification.create({
     data: {
       userId: params.owner,
       title: params.title,
       body: params.body,
+      titleKey: params.titleKey,
+      titleParams,
+      bodyKey: params.bodyKey,
+      bodyParams,
       category: params.category,
       metadata,
     },

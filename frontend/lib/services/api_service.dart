@@ -303,10 +303,10 @@ static Future<void> createCrop({
       if (species.isEmpty) {
         throw Exception('Hayvancılık türü (species) gerekli.');
       }
-      int? ageMonths;
-      final ageRaw = (data['age'] ?? data['ageMonths'])?.toString().trim();
-      if (ageRaw != null && ageRaw.isNotEmpty) {
-        ageMonths = int.tryParse(ageRaw);
+      DateTime? birthDate;
+      final birthDateRaw = data['birthDate']?.toString().trim();
+      if (birthDateRaw != null && birthDateRaw.isNotEmpty) {
+        birthDate = DateTime.tryParse(birthDateRaw);
       }
       double? weightKg;
       final weightRaw = (data['weight'] ?? data['weightKg'])?.toString().trim();
@@ -347,9 +347,8 @@ static Future<void> createCrop({
 
       await createLivestock(
         species: species,
-        ageMonths: ageMonths,
+        birthDate: birthDate,
         weightKg: weightKg,
-        tagId: (data['tagId'] as String?)?.trim(),
         notes: (data['notes'] as String?)?.trim(),
         dailyFeedKg: dailyFeedKg,
         healthStatus: (data['healthStatus'] as String?)?.trim(),
@@ -417,6 +416,53 @@ static Future<List<dynamic>> listLivestock({String? token}) async {
     if (res.statusCode == 401) _handleUnauthorized();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Milk record failed: ${res.statusCode} ${res.body}');
+    }
+  }
+
+  static Future<void> addEggData({
+    required String id,
+    required int eggCount,
+    double? avgWeightGram,
+    DateTime? date,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/livestock/$id/eggs');
+    final body = <String, dynamic>{
+      'eggCount': eggCount,
+      if (avgWeightGram != null) 'avgWeightGram': avgWeightGram,
+      if (date != null) 'date': date.toIso8601String(),
+    };
+    final res = await http.post(
+      uri,
+      headers: {..._authHeader(), 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Egg record failed: ${res.statusCode} ${res.body}');
+    }
+  }
+
+  static Future<void> addHoneyData({
+    required String id,
+    required double amountKg,
+    String? qualityGrade,
+    DateTime? date,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/livestock/$id/honey');
+    final body = <String, dynamic>{
+      'amount': amountKg,
+      if (qualityGrade != null && qualityGrade.trim().isNotEmpty)
+        'qualityGrade': qualityGrade.trim(),
+      if (date != null) 'date': date.toIso8601String(),
+    };
+    final res = await http.post(
+      uri,
+      headers: {..._authHeader(), 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 401) _handleUnauthorized();
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Honey record failed: ${res.statusCode} ${res.body}');
     }
   }
 
@@ -524,9 +570,8 @@ static Future<List<dynamic>> listProductsCombined() async {
 
   static Future<void> createLivestock({
     required String species,
-    int? ageMonths,
+    DateTime? birthDate,
     double? weightKg,
-    String? tagId,
     String? notes,
     double? dailyFeedKg,
     String? healthStatus,
@@ -540,9 +585,8 @@ static Future<List<dynamic>> listProductsCombined() async {
     final typeSpecificPayload = _normalizeTypeSpecificMap(typeSpecific);
     final body = <String, dynamic>{
       'species': species,
-      if (ageMonths != null) 'age': ageMonths,
+      if (birthDate != null) 'birthDate': birthDate.toIso8601String(),
       if (weightKg != null) 'weight': weightKg,
-      if (tagId != null && tagId.isNotEmpty) 'tagId': tagId,
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
       if (dailyFeedKg != null) 'dailyFeedKg': dailyFeedKg,
       if (healthStatus != null && healthStatus.trim().isNotEmpty)

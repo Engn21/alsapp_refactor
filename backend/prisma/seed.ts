@@ -16,20 +16,15 @@ async function main() {
   });
   console.log("✓ Seeded demo user:", email);
 
-  // Seed support programs
+  // Seed support programs. This is reference/catalog data (not
+  // user-generated), so a full replace is safe and simpler than upserting -
+  // title isn't a real unique key, so upserting by it silently duplicated
+  // every row on every reseed run.
   console.log("\nSeeding support programs...");
-  let count = 0;
-  for (const program of supportProgramSeeds) {
-    await prisma.supportProgram.upsert({
-      where: { id: program.title }, // Use title as unique identifier
-      update: program,
-      create: program,
-    }).catch(() => {
-      // If upsert by title fails, just create
-      return prisma.supportProgram.create({ data: program });
-    });
-    count++;
-  }
+  await prisma.supportProgram.deleteMany({});
+  const { count } = await prisma.supportProgram.createMany({
+    data: supportProgramSeeds,
+  });
   console.log(`✓ Seeded ${count} support programs`);
 }
 

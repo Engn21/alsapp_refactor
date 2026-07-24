@@ -63,10 +63,12 @@ class WeatherService {
   Future<Map<String, dynamic>> byCoords({
     required double lat,
     required double lon,
+    String lang = 'en',
   }) async {
     final current = await _dio.post('/api/weather', data: {
       'lat': lat,
       'lon': lon,
+      'lang': lang,
     });
     if (current.statusCode != 200) {
       throw 'Weather error: ${current.statusCode}';
@@ -86,6 +88,7 @@ class WeatherService {
       final daily = await _dio.get('/api/weather/daily', queryParameters: {
         'lat': '$lat',
         'lon': '$lon',
+        'lang': lang,
       });
       if (daily.statusCode == 200) {
         final dailyData =
@@ -113,7 +116,7 @@ class WeatherService {
   }
 
   /// Calls the backend /api/weather endpoint by location and returns normalized data.
-  Future<Map<String, dynamic>> byLocation() async {
+  Future<Map<String, dynamic>> byLocation({String lang = 'en'}) async {
     // Is the location service on?
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw 'Konum servisleri kapalı.';
@@ -143,7 +146,7 @@ class WeatherService {
 
     // Backend POST /api/weather
     final r = await _dio.post('/api/weather',
-        data: {'lat': pos.latitude, 'lon': pos.longitude});
+        data: {'lat': pos.latitude, 'lon': pos.longitude, 'lang': lang});
     if (r.statusCode != 200) {
       throw 'Weather error: ${r.statusCode}';
     }

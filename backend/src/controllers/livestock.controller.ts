@@ -174,21 +174,35 @@ async function maybeNotifyMilk(record: any, log: any) {
   if (alreadyAlerted) return;
 
   const reasons: string[] = [];
+  const reasonTemplates: { key: string; params: Record<string, unknown> }[] = [];
   if (quantityLow) {
     reasons.push(
       `Miktar: ${log.quantityL.toFixed(1)}L (minimum: ${threshold.minDailyMilkL}L)`,
     );
+    reasonTemplates.push({
+      key: "notif.reason.milkQuantity",
+      params: { value: log.quantityL.toFixed(1), min: threshold.minDailyMilkL },
+    });
   }
   if (fatLow) {
     reasons.push(
       `Yağ oranı: ${log.fatPercent?.toFixed(1)}% (minimum: ${threshold.minMilkFatPercent}%)`,
     );
+    reasonTemplates.push({
+      key: "notif.reason.milkFat",
+      params: { value: log.fatPercent?.toFixed(1), min: threshold.minMilkFatPercent },
+    });
   }
 
+  const measuredDate = log.measuredAt.toISOString().substring(0, 10);
   await pushNotification({
     owner: record.userId,
     title: `Süt üretimi uyarısı: ${record.animalType}`,
-    body: `${log.measuredAt.toISOString().substring(0, 10)} tarihli ölçümde ${reasons.join(" ve ")}.`,
+    body: `${measuredDate} tarihli ölçümde ${reasons.join(" ve ")}.`,
+    titleKey: "notif.milk.title",
+    titleParams: { animalType: record.animalType },
+    bodyKey: "notif.milk.body",
+    bodyParams: { date: measuredDate, reasons: reasonTemplates },
     category: "livestock",
     metadata: { livestockId: record.id },
   });
@@ -198,6 +212,197 @@ async function maybeNotifyMilk(record: any, log: any) {
     data: { lastMilkAlertAt: log.measuredAt },
   });
   record.lastMilkAlertAt = log.measuredAt;
+}
+
+// Eggs are logged per collection (not guaranteed daily - hens skip days
+// normally), so this checks a rolling average over the last 7 days rather
+// than a single log, and requires a few days of history before judging a
+// newly-added bird to avoid false alarms on day one.
+async function maybeNotifyEgg(record: any) {
+  const threshold = getLivestockThreshold(record.animalType);
+  if (!threshold?.minDailyEggs) return;
+
+  const windowDays = 7;
+  const minTrackedDays = 3;
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+
+  const [logs, earliest] = await Promise.all([
+    prisma.eggLog.findMany({
+      where: { livestockId: record.id, measuredAt: { gte: since } },
+      select: { eggCount: true },
+    }),
+    prisma.eggLog.findFirst({
+      where: { livestockId: record.id },
+      orderBy: { measuredAt: "asc" },
+      select: { measuredAt: true },
+    }),
+  ]);
+  if (!earliest) return;
+
+  const daysSinceFirst =
+    Math.floor((Date.now() - earliest.measuredAt.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  const trackedDays = Math.min(windowDays, daysSinceFirst);
+  if (trackedDays < minTrackedDays) return;
+
+  const totalEggs = logs.reduce((sum, l) => sum + l.eggCount, 0);
+  const avgPerDay = totalEggs / trackedDays;
+  if (avgPerDay >= threshold.minDailyEggs) return;
+
+  const lastAlert = record.lastEggAlertAt as Date | null;
+  if (lastAlert && Date.now() - lastAlert.getTime() < 24 * 60 * 60 * 1000) return;
+
+  await pushNotification({
+    owner: record.userId,
+    title: `Yumurta üretimi uyarısı: ${record.animalType}`,
+    body: `Son ${trackedDays} günün ortalaması ${avgPerDay.toFixed(2)} yumurta/gün (minimum: ${threshold.minDailyEggs}).`,
+    titleKey: "notif.egg.title",
+    titleParams: { animalType: record.animalType },
+    bodyKey: "notif.egg.body",
+    bodyParams: {
+      days: trackedDays,
+      avg: avgPerDay.toFixed(2),
+      min: threshold.minDailyEggs,
+    },
+    category: "livestock",
+    metadata: { livestockId: record.id },
+  });
+
+  const now = new Date();
+  await prisma.livestock.update({
+    where: { id: record.id },
+    data: { lastEggAlertAt: now },
+  });
+  record.lastEggAlertAt = now;
+}
+
+// Honey is harvested a few times a season, not daily, so this checks a
+// rolling 365-day total against an annual floor - scaled down for hives
+// that haven't been tracked a full year yet - rather than a daily minimum.
+async function maybeNotifyHoney(record: any) {
+  const threshold = getLivestockThreshold(record.animalType);
+  if (!threshold?.minHoneyKgPerYear) return;
+
+  const windowDays = 365;
+  const minTrackedDays = 90;
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+
+  const [logs, earliest] = await Promise.all([
+    prisma.honeyLog.findMany({
+      where: { livestockId: record.id, measuredAt: { gte: since } },
+      select: { amountKg: true },
+    }),
+    prisma.honeyLog.findFirst({
+      where: { livestockId: record.id },
+      orderBy: { measuredAt: "asc" },
+      select: { measuredAt: true },
+    }),
+  ]);
+  if (!earliest) return;
+
+  const daysSinceFirst =
+    Math.floor((Date.now() - earliest.measuredAt.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (daysSinceFirst < minTrackedDays) return;
+
+  const trackedDays = Math.min(windowDays, daysSinceFirst);
+  const scaledFloor = threshold.minHoneyKgPerYear * (trackedDays / windowDays);
+  const totalKg = logs.reduce((sum, l) => sum + l.amountKg, 0);
+  if (totalKg >= scaledFloor) return;
+
+  const lastAlert = record.lastHoneyAlertAt as Date | null;
+  const cooldownMs = 30 * 24 * 60 * 60 * 1000; // monthly, not daily - it's a seasonal metric
+  if (lastAlert && Date.now() - lastAlert.getTime() < cooldownMs) return;
+
+  await pushNotification({
+    owner: record.userId,
+    title: `Bal üretimi uyarısı: ${record.animalType}`,
+    body: `Son ${trackedDays} günde toplam ${totalKg.toFixed(1)} kg bal (beklenen: ~${scaledFloor.toFixed(1)} kg).`,
+    titleKey: "notif.honey.title",
+    titleParams: { animalType: record.animalType },
+    bodyKey: "notif.honey.body",
+    bodyParams: {
+      days: trackedDays,
+      total: totalKg.toFixed(1),
+      expected: scaledFloor.toFixed(1),
+    },
+    category: "livestock",
+    metadata: { livestockId: record.id },
+  });
+
+  const now = new Date();
+  await prisma.livestock.update({
+    where: { id: record.id },
+    data: { lastHoneyAlertAt: now },
+  });
+  record.lastHoneyAlertAt = now;
+}
+
+async function maybeNotifyWaterQuality(record: any, metrics: Record<string, any>) {
+  if ((record.animalType ?? "").toString().toLowerCase() !== "fish") return;
+  const threshold = getLivestockThreshold(record.animalType);
+  if (!threshold) return;
+
+  const tempRange = threshold.idealWaterTemperatureC;
+  const phRange = threshold.idealWaterPh;
+  if (!tempRange && !phRange) return;
+
+  const temp =
+    metrics.waterTemperature != null ? Number(metrics.waterTemperature) : null;
+  const ph = metrics.waterPh != null ? Number(metrics.waterPh) : null;
+
+  const tempOut =
+    tempRange != null &&
+    temp != null &&
+    Number.isFinite(temp) &&
+    (temp < tempRange.min || temp > tempRange.max);
+  const phOut =
+    phRange != null &&
+    ph != null &&
+    Number.isFinite(ph) &&
+    (ph < phRange.min || ph > phRange.max);
+
+  if (!tempOut && !phOut) return;
+
+  // Avoid re-alerting more than once a day while conditions stay bad.
+  const lastAlert = record.lastWaterQualityAlertAt as Date | null;
+  if (lastAlert && Date.now() - lastAlert.getTime() < 24 * 60 * 60 * 1000) return;
+
+  const reasons: string[] = [];
+  const reasonTemplates: { key: string; params: Record<string, unknown> }[] = [];
+  if (tempOut) {
+    reasons.push(
+      `Su sıcaklığı: ${temp}°C (ideal: ${tempRange!.min}-${tempRange!.max}°C)`,
+    );
+    reasonTemplates.push({
+      key: "notif.reason.waterTemp",
+      params: { value: temp, min: tempRange!.min, max: tempRange!.max },
+    });
+  }
+  if (phOut) {
+    reasons.push(`Su pH: ${ph} (ideal: ${phRange!.min}-${phRange!.max})`);
+    reasonTemplates.push({
+      key: "notif.reason.waterPh",
+      params: { value: ph, min: phRange!.min, max: phRange!.max },
+    });
+  }
+
+  await pushNotification({
+    owner: record.userId,
+    title: `Su kalitesi uyarısı: ${record.animalType}`,
+    body: `${reasons.join(" ve ")}.`,
+    titleKey: "notif.waterQuality.title",
+    titleParams: { animalType: record.animalType },
+    bodyKey: "notif.waterQuality.body",
+    bodyParams: { reasons: reasonTemplates },
+    category: "livestock",
+    metadata: { livestockId: record.id },
+  });
+
+  const now = new Date();
+  await prisma.livestock.update({
+    where: { id: record.id },
+    data: { lastWaterQualityAlertAt: now },
+  });
+  record.lastWaterQualityAlertAt = now;
 }
 
 export async function listLivestock(
@@ -337,11 +542,15 @@ export async function createLivestock(
     });
 
     await replaceLivestockMetrics(record.id, processedMetrics.metrics);
+    await maybeNotifyWaterQuality(record, processedMetrics.metrics);
 
     await pushNotification({
       owner,
       title: `Livestock added: ${species}`,
       body: "We will keep an eye on milk performance and alert you if needed.",
+      titleKey: "notif.livestockAdded.title",
+      titleParams: { species },
+      bodyKey: "notif.livestockAdded.body",
       category: "livestock",
       metadata: { livestockId: record.id },
     });
@@ -497,6 +706,7 @@ export async function updateLivestock(
 
     if (mergedMetrics) {
       await replaceLivestockMetrics(record.id, mergedMetrics);
+      await maybeNotifyWaterQuality(record, mergedMetrics);
     }
 
     const refreshed = await ensureLivestock(owner, record.id);
@@ -574,6 +784,113 @@ export async function recordMilkData(
         measuredAt: log.measuredAt.toISOString(),
         quantityLiters: log.quantityL,
         fatPercent: log.fatPercent ?? undefined,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function recordEggData(
+  req: AuthedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const owner = req.user?.id;
+    if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
+    const record = await ensureLivestock(owner, req.params.id);
+
+    const eggCount = Number.parseInt(
+      (req.body?.eggCount ?? req.body?.count ?? "").toString(),
+      10,
+    );
+    if (!Number.isFinite(eggCount) || eggCount < 0) {
+      throw Object.assign(new Error("eggCount must be a non-negative integer"), {
+        status: 400,
+      });
+    }
+
+    const measuredAt = req.body?.date ? new Date(req.body.date) : new Date();
+    if (Number.isNaN(measuredAt.valueOf())) {
+      throw Object.assign(new Error("date is invalid"), { status: 400 });
+    }
+
+    const weight = req.body?.avgWeightGram ?? req.body?.avgWeight;
+    const avgWeightGram =
+      weight != null && weight !== "" ? Number.parseFloat(weight.toString()) : undefined;
+
+    const log = await prisma.eggLog.create({
+      data: {
+        livestockId: record.id,
+        measuredAt,
+        eggCount,
+        avgWeightGram,
+      },
+    });
+
+    await maybeNotifyEgg(record);
+
+    res.json({
+      ok: true,
+      log: {
+        id: log.id,
+        livestockId: log.livestockId,
+        measuredAt: log.measuredAt.toISOString(),
+        eggCount: log.eggCount,
+        avgWeightGram: log.avgWeightGram ?? undefined,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function recordHoneyData(
+  req: AuthedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const owner = req.user?.id;
+    if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
+    const record = await ensureLivestock(owner, req.params.id);
+
+    const amount = Number.parseFloat(
+      (req.body?.amount ?? req.body?.amountKg ?? "").toString(),
+    );
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw Object.assign(new Error("amount must be positive"), { status: 400 });
+    }
+
+    const measuredAt = req.body?.date ? new Date(req.body.date) : new Date();
+    if (Number.isNaN(measuredAt.valueOf())) {
+      throw Object.assign(new Error("date is invalid"), { status: 400 });
+    }
+
+    const quality = req.body?.qualityGrade ?? req.body?.quality;
+    const qualityGrade =
+      quality != null && quality !== "" ? quality.toString().trim() : undefined;
+
+    const log = await prisma.honeyLog.create({
+      data: {
+        livestockId: record.id,
+        measuredAt,
+        amountKg: amount,
+        qualityGrade,
+      },
+    });
+
+    await maybeNotifyHoney(record);
+
+    res.json({
+      ok: true,
+      log: {
+        id: log.id,
+        livestockId: log.livestockId,
+        measuredAt: log.measuredAt.toISOString(),
+        amountKg: log.amountKg,
+        qualityGrade: log.qualityGrade ?? undefined,
       },
     });
   } catch (err) {

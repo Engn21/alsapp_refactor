@@ -20,6 +20,9 @@ export interface LivestockThreshold {
   maxWeightKg?: number;
   idealWeightKg?: number;
   idealDailyFeedKg?: number;
+  idealWaterTemperatureC?: { min: number; max: number };
+  idealWaterPh?: { min: number; max: number };
+  minHoneyKgPerYear?: number;
 }
 
 // 10 CROP TYPES WITH CRITICAL TRACKING FEATURES
@@ -59,19 +62,23 @@ export const CROP_THRESHOLDS: Record<string, CropThreshold> = {
     sprayIntervalDays: 7,
   },
   grape: {
-    minYieldTonPerHa: 9.0,
+    // Quality wine growers deliberately cap yield as low as 6 t/ha, so
+    // this floor sits well below that rather than penalizing them.
+    minYieldTonPerHa: 5.0,
     idealSugarPercent: { min: 17, max: 25 },
     idealMoisturePercent: { min: 75, max: 85 },
     sprayIntervalDays: 14,
   },
   olive: {
-    minYieldTonPerHa: 4.0,
+    // Olives alternate-bear (yield swings year to year naturally); a lower
+    // floor reduces, though doesn't eliminate, false alerts in "off" years.
+    minYieldTonPerHa: 2.5,
     idealOilPercent: { min: 15, max: 25 },
     idealMoisturePercent: { min: 45, max: 55 },
     sprayIntervalDays: 21,
   },
   rice: {
-    minYieldTonPerHa: 5.5,
+    minYieldTonPerHa: 4.0,
     idealMoisturePercent: { min: 12, max: 14 },
     idealProteinPercent: { min: 6, max: 8 },
     sprayIntervalDays: 14,
@@ -95,6 +102,10 @@ export const LIVESTOCK_THRESHOLDS: Record<string, LivestockThreshold> = {
     idealDailyFeedKg: 20,
   },
   sheep: {
+    // Dairy breeds (e.g. Sakız, Awassi) are commonly milked in Turkey;
+    // Awassi yields ~1-3 L/day, milk is notably higher-fat than cow/goat.
+    minDailyMilkL: 1.0,
+    minMilkFatPercent: 5.5,
     idealWeightKg: 70,
     minWeightKg: 40,
     maxWeightKg: 100,
@@ -129,17 +140,25 @@ export const LIVESTOCK_THRESHOLDS: Record<string, LivestockThreshold> = {
     idealDailyFeedKg: 0.35,
   },
   bee: {
-    // Honey production is measured differently
-    // No daily milk/eggs, tracked via HoneyLog
+    // Honey is harvested seasonally, not daily, so it's checked as a
+    // rolling-365-day total rather than a daily minimum. 20-27 kg/hive/year
+    // is a typical average; this floor sits comfortably below that.
+    minHoneyKgPerYear: 15,
   },
   fish: {
     idealWeightKg: 1.0,
     minWeightKg: 0.2,
     maxWeightKg: 3.0,
     idealDailyFeedKg: 0.03,
+    // Rainbow trout ranges (10-15C ideal growth, stress from ~20C) rather
+    // than warm-water species like tilapia (needs >20C): trout farming is
+    // by far the dominant freshwater aquaculture in Turkey. Revisit if the
+    // app ever needs to support warm-water species too.
+    idealWaterTemperatureC: { min: 8, max: 20 },
+    idealWaterPh: { min: 6.5, max: 8.5 },
   },
   buffalo: {
-    minDailyMilkL: 10.0,
+    minDailyMilkL: 7.5,
     minMilkFatPercent: 6.5,
     idealWeightKg: 600,
     minWeightKg: 450,

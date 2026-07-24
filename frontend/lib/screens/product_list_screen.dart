@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../widgets/language_selector.dart';
 import 'product_detail_screen.dart';
 import '../data/type_fields.dart';
+import '../widgets/type_specific_fields.dart';
 
 // Lists all products and supports quick add/edit.
 class ProductListScreen extends StatefulWidget {
@@ -62,6 +63,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
     return <String, dynamic>{};
   }
 
+  // The API stores birthDate, not an age field, so age is derived for
+  // display.
+  String? _ageInMonths(dynamic birthDate) {
+    if (birthDate == null) return null;
+    final parsed = DateTime.tryParse(birthDate.toString());
+    if (parsed == null) return null;
+    final months = DateTime.now().difference(parsed).inDays ~/ 30;
+    return months.toString();
+  }
+
   String? _formatHighlightValue(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) {
@@ -112,8 +123,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
 
     // Subtitle fallback for legacy fields.
-    final weight = it['weight'];
-    final age = it['age'];
+    final weight = it['weightKg'] ?? it['weight'];
+    final age = _ageInMonths(it['birthDate']);
     final area = it['areaHectares'] ?? it['area'];
     final nextSpray = it['nextSprayDueAt'] ?? it['nextSpray'];
     String subtitle;
@@ -309,13 +320,11 @@ class _AddItemFormState extends State<_AddItemForm> {
 
   // Livestock form controllers.
   final _speciesCtrl = TextEditingController();
-  final _ageCtrl = TextEditingController();
+  final _birthDateCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
-  final _tagIdCtrl = TextEditingController();
   final _notesAnimalCtrl = TextEditingController();
   final _specificTypeCtrl = TextEditingController();
-  final Map<String, TextEditingController> _typeFieldControllers = {};
-  final Map<String, dynamic> _typeSpecificValues = {};
+  final _typeSpecific = TypeSpecificFieldsController();
 
   @override
   void dispose() {
@@ -326,14 +335,11 @@ class _AddItemFormState extends State<_AddItemForm> {
     _areaCtrl.dispose();
     _pesticideCtrl.dispose();
     _speciesCtrl.dispose();
-    _ageCtrl.dispose();
+    _birthDateCtrl.dispose();
     _weightCtrl.dispose();
-    _tagIdCtrl.dispose();
     _notesAnimalCtrl.dispose();
     _specificTypeCtrl.dispose();
-    for (final controller in _typeFieldControllers.values) {
-      controller.dispose();
-    }
+    _typeSpecific.dispose();
     super.dispose();
   }
 
@@ -351,14 +357,6 @@ class _AddItemFormState extends State<_AddItemForm> {
     }
   }
 
-  void _resetTypeSpecific() {
-    for (final controller in _typeFieldControllers.values) {
-      controller.dispose();
-    }
-    _typeFieldControllers.clear();
-    _typeSpecificValues.clear();
-  }
-
   TypeFieldsConfig? _currentTypeConfig() {
     final selected =
         _type == 'crop' ? _selectedCropType : _selectedLivestockType;
@@ -368,214 +366,9 @@ class _AddItemFormState extends State<_AddItemForm> {
         : getLivestockFields(selected);
   }
 
-  TextEditingController _controllerForField(String key) {
-    if (_typeFieldControllers.containsKey(key)) {
-      final controller = _typeFieldControllers[key]!;
-      final expected = (_typeSpecificValues[key] ?? '').toString();
-      if (controller.text != expected) {
-        controller.text = expected;
-      }
-      return controller;
-    }
-    final controller = TextEditingController(
-      text: (_typeSpecificValues[key] ?? '').toString(),
-    );
-    controller.addListener(() {
-      _typeSpecificValues[key] = controller.text;
-    });
-    _typeFieldControllers[key] = controller;
-    return controller;
-  }
-
-  TypeFieldDefinition? _findTypeField(String key) {
-    final cfg = _currentTypeConfig();
-    if (cfg == null) return null;
-    for (final field in cfg.fields) {
-      if (field.key == key) return field;
-    }
-    return null;
-  }
-
-  void _maybePopulateAutoNext(
-    TypeFieldDefinition field,
-    String dateValue,
-  ) {
-    final auto = field.autoNext;
-    if (auto == null || dateValue.isEmpty) return;
-    final cfg = _currentTypeConfig();
-    if (cfg == null) return;
-    final targetField = _findTypeField(auto.key);
-    if (targetField == null) return;
-
-    final existing = _typeSpecificValues[targetField.key]?.toString().trim();
-    if (existing != null && existing.isNotEmpty) return;
-
-    final parsed = DateTime.tryParse(dateValue);
-    if (parsed == null) return;
-    final computed =
-        parsed.add(Duration(days: auto.intervalDays)).toIso8601String();
-    final formatted = computed.split('T').first;
-    _typeSpecificValues[targetField.key] = formatted;
-    final controller = _typeFieldControllers[targetField.key];
-    if (controller != null && controller.text != formatted) {
-      controller.text = formatted;
-    }
-  }
-
-  Future<void> _pickTypeSpecificDate(TypeFieldDefinition field) async {
-    final now = DateTime.now();
-    final currentValue = _typeSpecificValues[field.key]?.toString();
-    DateTime initialDate =
-        currentValue != null ? DateTime.tryParse(currentValue) ?? now : now;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked != null) {
-      final formatted = picked.toIso8601String().split('T').first;
-      setState(() {
-        _typeSpecificValues[field.key] = formatted;
-      });
-      final controller = _controllerForField(field.key);
-      if (controller.text != formatted) {
-        controller.text = formatted;
-      }
-      _maybePopulateAutoNext(field, formatted);
-    }
-  }
-
-  Map<String, dynamic> _collectTypeSpecific() {
-    final cfg = _currentTypeConfig();
-    if (cfg == null) return {};
-    final result = <String, dynamic>{};
-    for (final field in cfg.fields) {
-      if (!_typeSpecificValues.containsKey(field.key)) continue;
-      final raw = _typeSpecificValues[field.key];
-      if (raw == null) continue;
-      String? asString;
-      if (raw is String) {
-        final trimmed = raw.trim();
-        if (trimmed.isEmpty) continue;
-        asString = trimmed;
-      } else if (raw is DateTime) {
-        asString = raw.toIso8601String().split('T').first;
-      } else {
-        asString = raw.toString();
-        if (asString.trim().isEmpty) continue;
-      }
-
-      switch (field.type) {
-        case FieldInputType.number:
-          final parsedNum = double.tryParse(asString ?? '');
-          result[field.key] = parsedNum ?? asString;
-          break;
-        case FieldInputType.integer:
-          final parsedInt = int.tryParse(asString ?? '');
-          if (parsedInt != null) {
-            result[field.key] = parsedInt;
-          } else {
-            final parsedDouble = double.tryParse(asString ?? '');
-            result[field.key] =
-                parsedDouble != null ? parsedDouble.round() : asString;
-          }
-          break;
-        default:
-          result[field.key] = asString;
-      }
-    }
-    return result;
-  }
-
-  Widget _buildTypeSpecificInput(
-    TypeFieldDefinition field,
-    Set<String> autoComputedTargets,
-  ) {
-    final isAutoComputed = autoComputedTargets.contains(field.key);
-    final label = context.tr(field.labelKey);
-    final helper = isAutoComputed
-        ? context.tr('field.autoComputedHint')
-        : null;
-
-    switch (field.type) {
-      case FieldInputType.choice:
-        final currentValue = _typeSpecificValues[field.key]?.toString();
-        final choices = field.choices ?? [];
-        return DropdownButtonFormField<String>(
-          value: currentValue != null && currentValue.isNotEmpty
-              ? currentValue
-              : null,
-          decoration: InputDecoration(
-            labelText: label,
-            helperText: helper,
-          ),
-          items: choices
-              .map((choice) => DropdownMenuItem<String>(
-                    value: choice,
-                    child: Text(
-                        context.tr('choice.${field.key}.$choice')),
-                  ))
-              .toList(),
-          onChanged: (val) {
-            setState(() {
-              _typeSpecificValues[field.key] = val ?? '';
-            });
-          },
-        );
-      case FieldInputType.date:
-        final controller = _controllerForField(field.key);
-        return TextFormField(
-          controller: controller,
-          readOnly: true,
-          decoration: InputDecoration(
-            labelText: label,
-            helperText: helper,
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.calendar_today),
-              onPressed: () => _pickTypeSpecificDate(field),
-            ),
-          ),
-          onTap: () => _pickTypeSpecificDate(field),
-        );
-      case FieldInputType.number:
-      case FieldInputType.integer:
-        final controller = _controllerForField(field.key);
-        return TextFormField(
-          controller: controller,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            labelText: label,
-            helperText: helper,
-          ),
-          onChanged: (value) {
-            setState(() {
-              _typeSpecificValues[field.key] = value;
-            });
-          },
-        );
-      case FieldInputType.text:
-      default:
-        final controller = _controllerForField(field.key);
-        return TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: label,
-            helperText: helper,
-          ),
-        );
-    }
-  }
-
   Widget _buildTypeSpecificSection() {
     final cfg = _currentTypeConfig();
     if (cfg == null) return const SizedBox.shrink();
-    final autoComputedTargets = <String>{};
-    for (final field in cfg.fields) {
-      final auto = field.autoNext;
-      if (auto != null) autoComputedTargets.add(auto.key);
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -586,12 +379,7 @@ class _AddItemFormState extends State<_AddItemForm> {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        ...cfg.fields.map(
-          (field) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: _buildTypeSpecificInput(field, autoComputedTargets),
-          ),
-        ),
+        ..._typeSpecific.buildFields(context, cfg, () => setState(() {})),
       ],
     );
   }
@@ -602,7 +390,7 @@ class _AddItemFormState extends State<_AddItemForm> {
     try {
       final specificTypeValue =
           _specificTypeCtrl.text.trim().isEmpty ? null : _specificTypeCtrl.text.trim();
-      final typeSpecificPayload = _collectTypeSpecific();
+      final typeSpecificPayload = _typeSpecific.collect(_currentTypeConfig());
 
       if (_type == 'crop') {
         await ApiService.addProduct({
@@ -623,9 +411,9 @@ class _AddItemFormState extends State<_AddItemForm> {
         await ApiService.addProduct({
           'type': 'livestock',
           'species': _speciesCtrl.text.trim(),
-          'age': _ageCtrl.text.trim().isEmpty ? null : _ageCtrl.text.trim(),
+          'birthDate':
+              _birthDateCtrl.text.trim().isEmpty ? null : _birthDateCtrl.text.trim(),
           'weight': _weightCtrl.text.trim().isEmpty ? null : _weightCtrl.text.trim(),
-          'tagId': _tagIdCtrl.text.trim().isEmpty ? null : _tagIdCtrl.text.trim(),
           'notes': _notesAnimalCtrl.text.trim().isEmpty ? null : _notesAnimalCtrl.text.trim(),
           'specificType': specificTypeValue,
           'typeSpecific':
@@ -684,7 +472,7 @@ class _AddItemFormState extends State<_AddItemForm> {
                       _cropTypeCtrl.clear();
                       _speciesCtrl.clear();
                       _specificTypeCtrl.clear();
-                      _resetTypeSpecific();
+                      _typeSpecific.reset();
                     });
                   },
                 ),
@@ -708,7 +496,7 @@ class _AddItemFormState extends State<_AddItemForm> {
                   setState(() {
                     _selectedCropType = value;
                     _cropTypeCtrl.text = value ?? '';
-                    _resetTypeSpecific();
+                    _typeSpecific.reset();
                   });
                 },
                 validator: (v) =>
@@ -784,7 +572,7 @@ class _AddItemFormState extends State<_AddItemForm> {
                   setState(() {
                     _selectedLivestockType = value;
                     _speciesCtrl.text = value ?? '';
-                    _resetTypeSpecific();
+                    _typeSpecific.reset();
                   });
                 },
                 validator: (v) =>
@@ -799,11 +587,15 @@ class _AddItemFormState extends State<_AddItemForm> {
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _ageCtrl,
-                keyboardType: TextInputType.number,
+                controller: _birthDateCtrl,
+                readOnly: true,
                 decoration: InputDecoration(
-                  labelText: context.tr('Age (months)'),
-                  hintText: 'e.g. 12',
+                  labelText: context.tr('Birth date (optional)'),
+                  hintText: 'YYYY-MM-DD',
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () => _pickDate(_birthDateCtrl),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -814,12 +606,6 @@ class _AddItemFormState extends State<_AddItemForm> {
                   labelText: context.tr('Weight (kg)'),
                   hintText: 'e.g. 250',
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _tagIdCtrl,
-                decoration:
-                    InputDecoration(labelText: context.tr('Tag ID (optional)')),
               ),
               const SizedBox(height: 8),
               TextFormField(

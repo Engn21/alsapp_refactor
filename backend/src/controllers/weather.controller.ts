@@ -7,6 +7,14 @@ function getCoords(req: Request) {
   return { lat, lon };
 }
 
+// OpenWeather only localizes `description` (e.g. "broken clouds"), not the
+// fixed English `main` condition code (e.g. "Clouds") - that part is
+// translated client-side instead. tr/en/fr are all supported by their API.
+function getLang(req: Request): string {
+  const lang = (req.body?.lang ?? req.query.lang ?? "en").toString();
+  return ["tr", "en", "fr"].includes(lang) ? lang : "en";
+}
+
 function kelvinToC(k: number | null | undefined) {
   if (typeof k !== "number" || Number.isNaN(k)) return null;
   return k - 273.15;
@@ -93,7 +101,7 @@ export async function weather(req: Request, res: Response) {
     const r = await axios.get(
       "https://api.openweathermap.org/data/2.5/weather",
       {
-        params: { lat, lon, appid: apiKey },
+        params: { lat, lon, appid: apiKey, lang: getLang(req) },
         timeout: 8000,
       },
     );
@@ -119,7 +127,7 @@ export async function weatherSummary(req: Request, res: Response) {
     const r = await axios.get(
       "https://api.openweathermap.org/data/2.5/weather",
       {
-        params: { lat, lon, appid: apiKey },
+        params: { lat, lon, appid: apiKey, lang: getLang(req) },
         timeout: 8000,
       },
     );
@@ -157,6 +165,7 @@ export async function weatherDaily(req: Request, res: Response) {
           lat,
           lon,
           appid: apiKey,
+          lang: getLang(req),
         },
         timeout: 8000,
       },

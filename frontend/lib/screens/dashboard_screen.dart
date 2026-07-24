@@ -11,6 +11,8 @@ import 'supports_list_screen.dart';
 import 'weather_screen.dart';
 import 'profile_screen.dart';
 import '../services/support_service.dart';
+import '../services/notification_service.dart';
+import 'notifications_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userId;
@@ -48,13 +50,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const double _coldTempThreshold = 5.0; // °C (<= cold)
   static const double _windHighThreshold = 10.0; // m/s (≈36 km/h)
 
+  String? _loadedLang;
+
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Localizations.localeOf needs an established InheritedWidget
+    // dependency, which isn't available in initState. Re-load whenever
+    // the resolved locale actually changes (e.g. the user switches
+    // language while this screen is open), not just on first mount.
+    final lang = Localizations.localeOf(context).languageCode;
+    if (_loadedLang != lang) {
+      _loadedLang = lang;
+      _load();
+    }
   }
 
   Future<void> _load() async {
+    final lang = Localizations.localeOf(context).languageCode;
+    // Precomputed before any `await` below so we never touch BuildContext
+    // across an async gap - OpenWeather's `main` field is a fixed small
+    // English enum (Clear/Clouds/Rain/...), so this covers every value.
+    const weatherMainKeys = [
+      'Thunderstorm', 'Drizzle', 'Rain', 'Snow', 'Mist', 'Smoke', 'Haze',
+      'Dust', 'Fog', 'Sand', 'Ash', 'Squall', 'Tornado', 'Clear', 'Clouds',
+    ];
+    final weatherMainTranslations = {
+      for (final key in weatherMainKeys) key: context.tr(key),
+    };
     List<Map<String, dynamic>> productsLocal = [];
     List<Map<String, dynamic>> supportsLocal = [];
     String weatherLocal = '—';
@@ -67,6 +90,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double? tempVal, tempMinVal, tempMaxVal, windVal, windMaxVal;
     String? weatherSummaryLocal;
     bool needsWeatherLabel = false;
+    int notifCountLocal = 0;
 
     // Default to Istanbul; use device coordinates if available.
     double lat = 41.015137, lon = 28.979530;
@@ -98,12 +122,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }(),
       () async {
         try {
-          final sup = await ApiService.listSupports(status: 'active');
+          final sup = await ApiService.listSupports(status: 'active', lang: lang);
           final primary = sup.map(_ensureMap).where((m) => m.isNotEmpty).toList();
           List<Map<String, dynamic>> merged = List<Map<String, dynamic>>.from(primary);
           if (merged.length < 3) {
             try {
-              final fallback = await SupportService.fetchSupportPrograms();
+              final fallback = await SupportService.fetchSupportPrograms(lang: lang);
               merged = _mergeSupports(merged, fallback.map(_ensureMap).where((m) => m.isNotEmpty).toList());
             } catch (err) {
               debugPrint('[dashboard] fallback supports failed: $err');
@@ -116,8 +140,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }(),
       () async {
         try {
-          final weather = await _weatherService.byCoords(lat: lat, lon: lon);
-          final main = (weather['status'] ?? '').toString();
+          final weather =
+              await _weatherService.byCoords(lat: lat, lon: lon, lang: lang);
+          final mainRaw = (weather['status'] ?? '').toString();
+          final main = weatherMainTranslations[mainRaw] ?? mainRaw;
           final desc = (weather['description'] ?? '').toString();
           final combined = [main, desc]
               .map((e) => e.trim())
@@ -200,6 +226,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           weatherLocal = '—';
         }
       }(),
+      () async {
+        try {
+          final items = await NotificationService.list();
+          notifCountLocal = items.where((n) => !n.read).length;
+        } catch (e) {
+          debugPrint('[dashboard] notifications failed: $e');
+        }
+      }(),
     ]);
 
     if (!mounted) return;
@@ -224,17 +258,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       windSpeed = windVal;
       windMax = windMaxVal;
 
-      notifCount = _deriveNotifCount();
+      notifCount = notifCountLocal;
     });
-  }
-
-  int _deriveNotifCount() {
-    int n = 0;
-    if (rainRisk) n++;
-    if (highHumidityRisk) n++;
-    if (coldWeatherRisk) n++;
-    if (highWindRisk) n++;
-    return n;
   }
 
   bool get _hasWeatherDetails =>
@@ -852,21 +877,32 @@ Widget _productPreviewCard(
             },
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_none),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_none),
+                if (notifCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: Colors.red, borderRadius: BorderRadius.circular(12)),
+                      child: Text('$notifCount',
+                          style: const TextStyle(fontSize: 10, color: Colors.white)),
+                    ),
+                  ),
+              ],
+            ),
             tooltip: context.tr('Notifications'),
-            onPressed: () {
-              final parts = <String>[];
-              if (rainRisk) parts.add(context.tr('Rain risk'));
-              if (highHumidityRisk) {
-                parts.add(context.tr('High humidity'));
-              }
-              if (coldWeatherRisk) parts.add(context.tr('Cold weather'));
-              if (highWindRisk) parts.add(context.tr('High wind'));
-              final msg = parts.isEmpty
-                  ? context.tr('No critical notifications.')
-                  : context.tr('Attention: {items}.',
-                      params: {'items': parts.join(', ')});
-              ApiService.showAlert(context, msg);
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+              await _load();
             },
           ),
         ],
@@ -1006,7 +1042,11 @@ Widget _productPreviewCard(
         ),
       ),
       bottomNavigationBar: BottomNavigation(
-        currentIndex: 0,
+        // Dashboard isn't one of the three tabs below (Tracking/Supports/
+        // Weather), so it must not claim their index (e.g. 0 for Tracking)
+        // or tapping that tab from here would be treated as a no-op tap on
+        // the "already selected" tab and silently do nothing.
+        currentIndex: -1,
         userId: widget.userId,
         notifications: notifCount,
       ),

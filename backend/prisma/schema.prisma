@@ -70,6 +70,9 @@ model Livestock {
   woolLogs   WoolLog[]
   weightLogs WeightLog[]
   lastMilkAlertAt DateTime?
+  lastWaterQualityAlertAt DateTime?
+  lastEggAlertAt DateTime?
+  lastHoneyAlertAt DateTime?
   weightKg   Float?
   healthStatus String?
   dailyFeedKg Float?
@@ -207,19 +210,28 @@ model SupportProgram {
   id          String   @id @default(uuid())
   title       String
   titleEn     String?
+  titleFr     String?
   description String?
   descriptionEn String?
+  descriptionFr String?
   category    String   // 'bitkisel', 'hayvansal', 'kirsal_kalkinma', 'kredi', 'diger'
   subcategory String?  // 'mazot_gubre', 'tohum', 'sut', 'et', vb.
   amount      String?  // örn: "1500 TL/dekar", "flexible"
   amountEn    String?
+  amountFr    String?
   eligibility String?  // Kimler başvurabilir
   eligibilityEn String?
+  eligibilityFr String?
   requiredDocs String? // Gerekli belgeler
   requiredDocsEn String?
+  requiredDocsFr String?
   applicationStart DateTime?
   applicationDeadline DateTime?
   link        String?
+  provider    String?  // Sorumlu kurum (örn: "Tarım ve Orman Bakanlığı")
+  providerEn  String?
+  providerFr  String?
+  officialGazetteUrl String?
   status      String   @default("active") // 'active', 'expired', 'coming_soon'
   targetCrops String?  // JSON array: ["wheat", "corn"]
   targetLivestock String? // JSON array: ["cow", "sheep"]
@@ -263,8 +275,17 @@ model Notification {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // title/body: plain-text fallback (fixed language) for old clients/rows.
   title     String
   body      String
+  // titleKey/bodyKey + params: preferred rendering path. The client looks
+  // these up via its own translation table so the same notification reads
+  // correctly in whatever language the viewer currently has selected,
+  // rather than being frozen in the language active when it was created.
+  titleKey    String?
+  titleParams Json?
+  bodyKey     String?
+  bodyParams  Json?
   category  String?
   metadata  Json?
   read      Boolean  @default(false)

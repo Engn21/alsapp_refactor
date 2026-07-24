@@ -24,11 +24,18 @@ class SupportService {
 
   /// Returns support programs.
   /// Tries the modern `GET /supports` first; falls back to legacy `POST /dash`.
-  static Future<List<Map<String, dynamic>>> fetchSupportPrograms() async {
+  /// Requires an authenticated session - the backend uses it to flag
+  /// programs matching the farmer's own crops/livestock.
+  static Future<List<Map<String, dynamic>>> fetchSupportPrograms({
+    String lang = 'tr',
+  }) async {
+    final token = ApiService.session?.token;
+    final authHeaders = token != null ? {'Authorization': 'Bearer $token'} : <String, String>{};
+
     // 1) Modern endpoint: GET /supports
     try {
       final r = await http
-          .get(Uri.parse('$_base/supports'))
+          .get(Uri.parse('$_base/supports?lang=$lang'), headers: authHeaders)
           .timeout(const Duration(seconds: 15));
       if (r.statusCode == 200) {
         final supports = _parseSupports(jsonDecode(r.body));
@@ -41,8 +48,8 @@ class SupportService {
     // 2) Legacy endpoint: POST /dash (backend ignores the body; kept for
     // backward compatibility with older API deployments).
     final r = await http.post(
-      Uri.parse('$_base/dash'),
-      headers: {'Content-Type': 'application/json'},
+      Uri.parse('$_base/dash?lang=$lang'),
+      headers: {'Content-Type': 'application/json', ...authHeaders},
       body: jsonEncode({}),
     ).timeout(const Duration(seconds: 15));
 
