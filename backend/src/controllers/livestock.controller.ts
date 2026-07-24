@@ -64,7 +64,7 @@ async function replaceLivestockMetrics(
   }
 }
 
-function serializeLivestock(item: any) {
+export function serializeLivestock(item: any) {
   const metricMap = extractMetricMap(item);
   const processed = processTypeMetrics(
     "livestock",
@@ -405,6 +405,25 @@ async function maybeNotifyWaterQuality(record: any, metrics: Record<string, any>
   record.lastWaterQualityAlertAt = now;
 }
 
+// Shared by the Tracking screen (listLivestock) and the AI assistant's
+// get_livestock tool - keeps the query/serialize logic in one place.
+export async function listLivestockForUser(userId: string) {
+  const animals = await prisma.livestock.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      milkLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
+      eggLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
+      honeyLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
+      woolLogs: { orderBy: { shearedAt: "desc" }, take: 5 },
+      weightLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
+      metrics: true,
+    },
+  });
+
+  return animals.map(serializeLivestock);
+}
+
 export async function listLivestock(
   req: AuthedRequest,
   res: Response,
@@ -413,21 +432,7 @@ export async function listLivestock(
   try {
     const owner = req.user?.id;
     if (!owner) return res.json([]);
-
-    const animals = await prisma.livestock.findMany({
-      where: { userId: owner },
-      orderBy: { createdAt: "desc" },
-      include: {
-        milkLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
-        eggLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
-        honeyLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
-        woolLogs: { orderBy: { shearedAt: "desc" }, take: 5 },
-        weightLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
-        metrics: true,
-      },
-    });
-
-    res.json(animals.map(serializeLivestock));
+    res.json(await listLivestockForUser(owner));
   } catch (err) {
     next(err);
   }

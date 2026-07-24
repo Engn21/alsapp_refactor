@@ -17,6 +17,7 @@ model User {
   livestock  Livestock[]
   listings   MarketListing[]
   notifications Notification[]
+  assistantMessages AssistantMessage[]
 }
 
 enum Role {
@@ -257,6 +258,20 @@ model WeatherAlert {
   @@index([expiresAt])
 }
 
+model MinistryOffice {
+  id        String   @id @default(uuid())
+  province  String            // e.g. "Adana" - one row per province
+  name      String            // full display name, e.g. "Adana İl Tarım ve Orman Müdürlüğü"
+  address   String
+  phone     String            // normalized display format, e.g. "0322 xxx xx xx"
+  lat       Float
+  lon       Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([province])
+}
+
 model MarketListing {
   id        String   @id @default(uuid())
   userId    String
@@ -297,4 +312,23 @@ model Notification {
 enum ItemType {
   crop
   livestock
+}
+
+model AssistantMessage {
+  id        String               @id @default(uuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AssistantMessageRole
+  content   String
+  // Audit trail for assistant-role rows: [{toolName, input, outputSummary, isError}].
+  // Null for user rows and assistant replies that needed no tool.
+  toolCalls Json?
+  createdAt DateTime             @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum AssistantMessageRole {
+  user
+  assistant
 }

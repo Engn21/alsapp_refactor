@@ -87,29 +87,35 @@ function normalizeCurrentWeather(data: any) {
   };
 }
 
+// Pure fetch, no res writes - shared by the `weather` handler below and
+// the AI assistant's get_weather tool executor.
+export async function fetchCurrentWeather(lat: number, lon: number, lang: string) {
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+  if (!apiKey) {
+    throw Object.assign(new Error("OPENWEATHER_API_KEY missing"), { status: 500 });
+  }
+  try {
+    const r = await axios.get(
+      "https://api.openweathermap.org/data/2.5/weather",
+      { params: { lat, lon, appid: apiKey, lang }, timeout: 8000 },
+    );
+    return r.data;
+  } catch (e: any) {
+    const status = e?.response?.status ?? 500;
+    throw Object.assign(new Error(e?.message ?? "weather error"), { status });
+  }
+}
+
 export async function weather(req: Request, res: Response) {
   try {
     const { lat, lon } = getCoords(req);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       return res.status(400).json({ error: "Missing or invalid lat/lon" });
     }
-    const apiKey = process.env.OPENWEATHER_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: "OPENWEATHER_API_KEY missing" });
-    }
-
-    const r = await axios.get(
-      "https://api.openweathermap.org/data/2.5/weather",
-      {
-        params: { lat, lon, appid: apiKey, lang: getLang(req) },
-        timeout: 8000,
-      },
-    );
-
-    return res.json(r.data);
+    const data = await fetchCurrentWeather(lat, lon, getLang(req));
+    return res.json(data);
   } catch (e: any) {
-    const status = e?.response?.status ?? 500;
-    return res.status(status).json({ error: e?.message ?? "weather error" });
+    return res.status(e?.status ?? 500).json({ error: e?.message ?? "weather error" });
   }
 }
 
@@ -146,175 +152,178 @@ export async function weatherSummary(req: Request, res: Response) {
   }
 }
 
+// Pure fetch + aggregation, no res writes - shared by the `weatherDaily`
+// handler below and the AI assistant's get_weather tool executor.
+export async function fetchDailyForecast(lat: number, lon: number, lang: string) {
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+  if (!apiKey) {
+    throw Object.assign(new Error("OPENWEATHER_API_KEY missing"), { status: 500 });
+  }
+
+  // Ücretsiz API için 5-day/3-hour forecast kullanıyoruz
+  let response;
+  try {
+    response = await axios.get(
+      "https://api.openweathermap.org/data/2.5/forecast",
+      {
+        params: { lat, lon, appid: apiKey, lang },
+        timeout: 8000,
+      },
+    );
+  } catch (e: any) {
+    const status = e?.response?.status ?? 500;
+    throw Object.assign(new Error(e?.message ?? "weather daily error"), { status });
+  }
+
+  const payload = response.data;
+  const forecastList: any[] = Array.isArray(payload?.list) ? payload.list : [];
+  if (!forecastList.length) {
+    throw Object.assign(new Error("Weather forecast data unavailable"), { status: 502 });
+  }
+
+  // Bugünün tarihini al (UTC)
+  const now = new Date();
+  const todayDateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+
+  // Bugüne ait tüm tahminleri filtrele
+  const todayForecasts = forecastList.filter((item) => {
+    const itemDate = new Date(item.dt * 1000).toISOString().split("T")[0];
+    return itemDate === todayDateStr;
+  });
+
+  // Eğer bugün için tahmin yoksa, ilk tahminleri kullan
+  const relevantForecasts = todayForecasts.length > 0
+    ? todayForecasts
+    : forecastList.slice(0, 8); // İlk 24 saat
+
+  // Bugün için min/max sıcaklık, nem ortalaması, rüzgar max hesapla
+  let tempMinK: number | undefined;
+  let tempMaxK: number | undefined;
+  let humiditySum = 0;
+  let humidityCount = 0;
+  let maxWindSpeed = 0;
+  let maxWindGust = 0;
+  let hasRain = false;
+
+  const toNumber = (value: any) =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+  relevantForecasts.forEach((item) => {
+    const temp = toNumber(item?.main?.temp);
+    const humidity = toNumber(item?.main?.humidity);
+    const windSpeed = toNumber(item?.wind?.speed);
+    const windGust = toNumber(item?.wind?.gust);
+
+    if (temp != null) {
+      if (tempMinK == null || temp < tempMinK) tempMinK = temp;
+      if (tempMaxK == null || temp > tempMaxK) tempMaxK = temp;
+    }
+
+    if (humidity != null) {
+      humiditySum += humidity;
+      humidityCount++;
+    }
+
+    if (windSpeed != null && windSpeed > maxWindSpeed) {
+      maxWindSpeed = windSpeed;
+    }
+
+    if (windGust != null && windGust > maxWindGust) {
+      maxWindGust = windGust;
+    }
+
+    // Yağmur kontrolü
+    if (Array.isArray(item?.weather)) {
+      item.weather.forEach((w: any) => {
+        const main = (w?.main ?? "").toString().toLowerCase();
+        const desc = (w?.description ?? "").toString().toLowerCase();
+        if (
+          main.includes("rain") ||
+          main.includes("storm") ||
+          desc.includes("rain") ||
+          desc.includes("storm")
+        ) {
+          hasRain = true;
+        }
+      });
+    }
+  });
+
+  // İlk tahminin hava durumu bilgisini kullan
+  const firstForecast = relevantForecasts[0] ?? {};
+  const primaryWeather =
+    Array.isArray(firstForecast?.weather) && firstForecast.weather.length
+      ? firstForecast.weather[0]
+      : null;
+
+  const main =
+    typeof primaryWeather?.main === "string" && primaryWeather.main
+      ? primaryWeather.main
+      : "Weather";
+  const description =
+    typeof primaryWeather?.description === "string" &&
+    primaryWeather.description
+      ? primaryWeather.description
+      : undefined;
+
+  const avgHumidity =
+    humidityCount > 0 ? Math.round(humiditySum / humidityCount) : undefined;
+
+  const tempMinC = kelvinToC(tempMinK);
+  const tempMaxC = kelvinToC(tempMaxK);
+  const tempAvgK = tempMinK != null && tempMaxK != null
+    ? (tempMinK + tempMaxK) / 2
+    : toNumber(firstForecast?.main?.temp);
+  const tempAvgC = kelvinToC(tempAvgK);
+
+  const summary =
+    main && tempMinC != null && tempMaxC != null
+      ? `${main} / ${tempMinC.toFixed(0)}-${tempMaxC.toFixed(0)}°C`
+      : main && tempAvgC != null
+        ? `${main} / ${tempAvgC.toFixed(1)}°C`
+        : main || undefined;
+
+  return {
+    weather: [
+      {
+        main,
+        description,
+      },
+    ],
+    main: {
+      temp: tempAvgK,
+      feels_like: toNumber(firstForecast?.main?.feels_like),
+      humidity: avgHumidity,
+      temp_min: tempMinK,
+      temp_max: tempMaxK,
+    },
+    wind: {
+      speed: maxWindSpeed > 0 ? Number(maxWindSpeed.toFixed(2)) : undefined,
+      gust: maxWindGust > 0 ? Number(maxWindGust.toFixed(2)) : undefined,
+    },
+    city: payload?.city?.name ?? null,
+    daily: {
+      tempMinC: tempMinC != null ? Number(tempMinC.toFixed(1)) : null,
+      tempMaxC: tempMaxC != null ? Number(tempMaxC.toFixed(1)) : null,
+      humidityAvg: avgHumidity ?? null,
+      windAvg: maxWindSpeed > 0 ? Number(maxWindSpeed.toFixed(2)) : null,
+      windMax: maxWindGust > maxWindSpeed ? Number(maxWindGust.toFixed(2)) : maxWindSpeed > 0 ? Number(maxWindSpeed.toFixed(2)) : null,
+      hasRain,
+      period: "today",
+    },
+    summary,
+  };
+}
+
 export async function weatherDaily(req: Request, res: Response) {
   try {
     const { lat, lon } = getCoords(req);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       return res.status(400).json({ error: "Missing or invalid lat/lon" });
     }
-    const apiKey = process.env.OPENWEATHER_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: "OPENWEATHER_API_KEY missing" });
-    }
-
-    // Ücretsiz API için 5-day/3-hour forecast kullanıyoruz
-    const response = await axios.get(
-      "https://api.openweathermap.org/data/2.5/forecast",
-      {
-        params: {
-          lat,
-          lon,
-          appid: apiKey,
-          lang: getLang(req),
-        },
-        timeout: 8000,
-      },
-    );
-
-    const payload = response.data;
-    const forecastList: any[] = Array.isArray(payload?.list) ? payload.list : [];
-    if (!forecastList.length) {
-      return res
-        .status(502)
-        .json({ error: "Weather forecast data unavailable" });
-    }
-
-    // Bugünün tarihini al (UTC)
-    const now = new Date();
-    const todayDateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
-
-    // Bugüne ait tüm tahminleri filtrele
-    const todayForecasts = forecastList.filter((item) => {
-      const itemDate = new Date(item.dt * 1000).toISOString().split("T")[0];
-      return itemDate === todayDateStr;
-    });
-
-    // Eğer bugün için tahmin yoksa, ilk tahminleri kullan
-    const relevantForecasts = todayForecasts.length > 0
-      ? todayForecasts
-      : forecastList.slice(0, 8); // İlk 24 saat
-
-    // Bugün için min/max sıcaklık, nem ortalaması, rüzgar max hesapla
-    let tempMinK: number | undefined;
-    let tempMaxK: number | undefined;
-    let humiditySum = 0;
-    let humidityCount = 0;
-    let maxWindSpeed = 0;
-    let maxWindGust = 0;
-    let hasRain = false;
-
-    const toNumber = (value: any) =>
-      typeof value === "number" && Number.isFinite(value) ? value : undefined;
-
-    relevantForecasts.forEach((item) => {
-      const temp = toNumber(item?.main?.temp);
-      const humidity = toNumber(item?.main?.humidity);
-      const windSpeed = toNumber(item?.wind?.speed);
-      const windGust = toNumber(item?.wind?.gust);
-
-      if (temp != null) {
-        if (tempMinK == null || temp < tempMinK) tempMinK = temp;
-        if (tempMaxK == null || temp > tempMaxK) tempMaxK = temp;
-      }
-
-      if (humidity != null) {
-        humiditySum += humidity;
-        humidityCount++;
-      }
-
-      if (windSpeed != null && windSpeed > maxWindSpeed) {
-        maxWindSpeed = windSpeed;
-      }
-
-      if (windGust != null && windGust > maxWindGust) {
-        maxWindGust = windGust;
-      }
-
-      // Yağmur kontrolü
-      if (Array.isArray(item?.weather)) {
-        item.weather.forEach((w: any) => {
-          const main = (w?.main ?? "").toString().toLowerCase();
-          const desc = (w?.description ?? "").toString().toLowerCase();
-          if (
-            main.includes("rain") ||
-            main.includes("storm") ||
-            desc.includes("rain") ||
-            desc.includes("storm")
-          ) {
-            hasRain = true;
-          }
-        });
-      }
-    });
-
-    // İlk tahminin hava durumu bilgisini kullan
-    const firstForecast = relevantForecasts[0] ?? {};
-    const primaryWeather =
-      Array.isArray(firstForecast?.weather) && firstForecast.weather.length
-        ? firstForecast.weather[0]
-        : null;
-
-    const main =
-      typeof primaryWeather?.main === "string" && primaryWeather.main
-        ? primaryWeather.main
-        : "Weather";
-    const description =
-      typeof primaryWeather?.description === "string" &&
-      primaryWeather.description
-        ? primaryWeather.description
-        : undefined;
-
-    const avgHumidity =
-      humidityCount > 0 ? Math.round(humiditySum / humidityCount) : undefined;
-
-    const tempMinC = kelvinToC(tempMinK);
-    const tempMaxC = kelvinToC(tempMaxK);
-    const tempAvgK = tempMinK != null && tempMaxK != null
-      ? (tempMinK + tempMaxK) / 2
-      : toNumber(firstForecast?.main?.temp);
-    const tempAvgC = kelvinToC(tempAvgK);
-
-    const summary =
-      main && tempMinC != null && tempMaxC != null
-        ? `${main} / ${tempMinC.toFixed(0)}-${tempMaxC.toFixed(0)}°C`
-        : main && tempAvgC != null
-          ? `${main} / ${tempAvgC.toFixed(1)}°C`
-          : main || undefined;
-
-    return res.json({
-      weather: [
-        {
-          main,
-          description,
-        },
-      ],
-      main: {
-        temp: tempAvgK,
-        feels_like: toNumber(firstForecast?.main?.feels_like),
-        humidity: avgHumidity,
-        temp_min: tempMinK,
-        temp_max: tempMaxK,
-      },
-      wind: {
-        speed: maxWindSpeed > 0 ? Number(maxWindSpeed.toFixed(2)) : undefined,
-        gust: maxWindGust > 0 ? Number(maxWindGust.toFixed(2)) : undefined,
-      },
-      city: payload?.city?.name ?? null,
-      daily: {
-        tempMinC: tempMinC != null ? Number(tempMinC.toFixed(1)) : null,
-        tempMaxC: tempMaxC != null ? Number(tempMaxC.toFixed(1)) : null,
-        humidityAvg: avgHumidity ?? null,
-        windAvg: maxWindSpeed > 0 ? Number(maxWindSpeed.toFixed(2)) : null,
-        windMax: maxWindGust > maxWindSpeed ? Number(maxWindGust.toFixed(2)) : maxWindSpeed > 0 ? Number(maxWindSpeed.toFixed(2)) : null,
-        hasRain,
-        period: "today",
-      },
-      summary,
-    });
+    const data = await fetchDailyForecast(lat, lon, getLang(req));
+    return res.json(data);
   } catch (e: any) {
-    const status = e?.response?.status ?? 500;
-    return res
-      .status(status)
-      .json({ error: e?.message ?? "weather daily error" });
+    return res.status(e?.status ?? 500).json({ error: e?.message ?? "weather daily error" });
   }
 }

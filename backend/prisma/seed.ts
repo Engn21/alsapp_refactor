@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import 'dotenv/config';
 import { supportProgramSeeds } from "./support-seeds";
+import { ministryOfficeSeeds } from "./ministry-office-seeds";
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,14 @@ async function main() {
     data: supportProgramSeeds,
   });
   console.log(`✓ Seeded ${count} support programs`);
+
+  // Seed ministry offices - same full-replace pattern as support programs.
+  console.log("\nSeeding ministry offices...");
+  await prisma.ministryOffice.deleteMany({});
+  const { count: officeCount } = await prisma.ministryOffice.createMany({
+    data: ministryOfficeSeeds,
+  });
+  console.log(`✓ Seeded ${officeCount} ministry offices`);
 }
 
 main().finally(() => prisma.$disconnect());

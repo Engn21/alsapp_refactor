@@ -457,6 +457,24 @@ class AppLocalizations {
       'notif.reason.sugar': 'sugar {value}% (ideal: {min}-{max}%)',
       'notif.reason.oil': 'oil {value}% (ideal: {min}-{max}%)',
       'notif.reasonSeparator': ' and ',
+      'AI Assistant': 'AI Assistant',
+      'Ask about your crops, livestock, or weather...':
+          'Ask about your crops, livestock, or weather...',
+      'Send': 'Send',
+      'No messages yet': 'No messages yet',
+      'Ask me anything about your crops, livestock, weather, or support programs.':
+          'Ask me anything about your crops, livestock, weather, or support programs.',
+      'Failed to send. Tap to retry.': 'Failed to send. Tap to retry.',
+      'Too many messages, please wait a moment.':
+          'Too many messages, please wait a moment.',
+      'Retry': 'Retry',
+      'Nearby Offices': 'Nearby Offices',
+      'Call': 'Call',
+      '{distance} km away': '{distance} km away',
+      'Location access is off - showing all offices unsorted.':
+          'Location access is off - showing all offices unsorted.',
+      'No offices found.': 'No offices found.',
+      'Could not start the call.': 'Could not start the call.',
     },
     'tr': {
       'English': 'İngilizce',
@@ -887,6 +905,25 @@ class AppLocalizations {
       'notif.reason.sugar': 'şeker %{value} (ideal: %{min}-%{max})',
       'notif.reason.oil': 'yağ %{value} (ideal: %{min}-%{max})',
       'notif.reasonSeparator': ' ve ',
+      'AI Assistant': 'Yapay Zeka Asistanı',
+      'Ask about your crops, livestock, or weather...':
+          'Ürünleriniz, hayvanlarınız veya hava durumu hakkında sorun...',
+      'Send': 'Gönder',
+      'No messages yet': 'Henüz mesaj yok',
+      'Ask me anything about your crops, livestock, weather, or support programs.':
+          'Ürünleriniz, hayvanlarınız, hava durumu veya destek programları hakkında bana istediğinizi sorun.',
+      'Failed to send. Tap to retry.':
+          'Gönderilemedi. Tekrar denemek için dokunun.',
+      'Too many messages, please wait a moment.':
+          'Çok fazla mesaj gönderdiniz, lütfen biraz bekleyin.',
+      'Retry': 'Tekrar dene',
+      'Nearby Offices': 'Yakındaki Müdürlükler',
+      'Call': 'Ara',
+      '{distance} km away': '{distance} km uzakta',
+      'Location access is off - showing all offices unsorted.':
+          'Konum erişimi kapalı - tüm müdürlükler sırasız gösteriliyor.',
+      'No offices found.': 'Müdürlük bulunamadı.',
+      'Could not start the call.': 'Arama başlatılamadı.',
     },
     'fr': {
       'English': 'Anglais',
@@ -1305,6 +1342,25 @@ class AppLocalizations {
       'notif.reason.sugar': 'sucre {value}% (idéal : {min}-{max}%)',
       'notif.reason.oil': 'huile {value}% (idéal : {min}-{max}%)',
       'notif.reasonSeparator': ' et ',
+      'AI Assistant': 'Assistant IA',
+      'Ask about your crops, livestock, or weather...':
+          'Posez une question sur vos cultures, votre élevage ou la météo...',
+      'Send': 'Envoyer',
+      'No messages yet': 'Aucun message pour le moment',
+      'Ask me anything about your crops, livestock, weather, or support programs.':
+          'Posez-moi n\'importe quelle question sur vos cultures, votre élevage, la météo ou les programmes d\'aide.',
+      'Failed to send. Tap to retry.':
+          'Échec de l\'envoi. Appuyez pour réessayer.',
+      'Too many messages, please wait a moment.':
+          'Trop de messages envoyés, veuillez patienter un instant.',
+      'Retry': 'Réessayer',
+      'Nearby Offices': 'Bureaux à proximité',
+      'Call': 'Appeler',
+      '{distance} km away': 'à {distance} km',
+      'Location access is off - showing all offices unsorted.':
+          "L'accès à la position est désactivé - tous les bureaux sont affichés sans tri.",
+      'No offices found.': 'Aucun bureau trouvé.',
+      'Could not start the call.': "Impossible de démarrer l'appel.",
     },
   };
 

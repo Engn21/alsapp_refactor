@@ -35,7 +35,7 @@ interface FarmProfile {
   livestockTypes: Set<string>;
 }
 
-async function getFarmProfile(owner: string): Promise<FarmProfile> {
+export async function getFarmProfile(owner: string): Promise<FarmProfile> {
   const [crops, livestock] = await Promise.all([
     prisma.crop.findMany({
       where: { userId: owner },
@@ -58,7 +58,7 @@ async function getFarmProfile(owner: string): Promise<FarmProfile> {
 // applicable (credit, rural development, young farmer grants, etc.) and
 // counts as relevant to everyone. Otherwise it matches only if the farmer
 // actually grows/raises something the program targets.
-function matchesFarm(program: any, profile: FarmProfile): boolean {
+export function matchesFarm(program: any, profile: FarmProfile): boolean {
   const targetCrops: string[] = program.targetCrops
     ? JSON.parse(program.targetCrops)
     : [];
@@ -77,7 +77,7 @@ function matchesFarm(program: any, profile: FarmProfile): boolean {
   return cropMatch || livestockMatch;
 }
 
-function serializeSupport(
+export function serializeSupport(
   program: any,
   lang: string = "tr",
   isMatch: boolean = false,
@@ -161,6 +161,33 @@ async function maybeNotifyUpcomingDeadlines(
       metadata: { supportProgramId: program.id },
     });
   }
+}
+
+// Shared read-only lookup for the AI assistant's get_support_programs
+// tool. Deliberately does NOT call maybeNotifyUpcomingDeadlines - a
+// read-only AI lookup must not have the side effect of creating
+// notification rows (that side effect belongs only to the user-initiated
+// Supports screen fetch in listSupports below).
+export async function listMatchedSupportPrograms(owner: string, lang: string) {
+  const programs = await prisma.supportProgram.findMany({
+    where: {
+      status: "active",
+      OR: [
+        { applicationDeadline: null },
+        { applicationDeadline: { gte: new Date() } },
+      ],
+    },
+    orderBy: [{ priority: "desc" }, { applicationDeadline: "asc" }],
+  });
+
+  const profile = await getFarmProfile(owner);
+  const withMatch = programs.map((p) => ({
+    program: p,
+    isMatch: matchesFarm(p, profile),
+  }));
+  withMatch.sort((a, b) => Number(b.isMatch) - Number(a.isMatch));
+
+  return withMatch.map((x) => serializeSupport(x.program, lang, x.isMatch));
 }
 
 export async function listSupports(req: AuthedRequest, res: Response) {

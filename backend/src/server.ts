@@ -9,6 +9,8 @@ import weatherRoutes from "./routes/weather";
 import supportsRoutes from "./routes/supports";
 import dashRoutes from "./routes/dash";
 import notificationRoutes from "./routes/notifications";
+import assistantRoutes from "./routes/assistant";
+import ministryOfficeRoutes from "./routes/ministry-offices";
 import { errorHandler } from "./middleware/error";
 
 export function createServer() {
@@ -71,6 +73,8 @@ export function createServer() {
   app.use("/api/supports", supportsRoutes);
   app.use("/api/dash", dashRoutes);
   app.use("/api/notifications", notificationRoutes);
+  app.use("/api/assistant", assistantRoutes);
+  app.use("/api/ministry-offices", ministryOfficeRoutes);
 
   // Health check
   app.get("/health", (_req, res) => res.json({ ok: true }));

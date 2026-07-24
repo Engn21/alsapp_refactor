@@ -13,6 +13,8 @@ import 'profile_screen.dart';
 import '../services/support_service.dart';
 import '../services/notification_service.dart';
 import 'notifications_screen.dart';
+import 'chat_screen.dart';
+import 'nearby_offices_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userId;
@@ -860,6 +862,16 @@ Widget _productPreviewCard(
         actions: [
           const LanguageSelector(),
           IconButton(
+            icon: const Icon(Icons.smart_toy_outlined),
+            tooltip: context.tr('AI Assistant'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChatScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.person),
             tooltip: context.tr('Profile'),
             onPressed: () {
@@ -903,6 +915,16 @@ Widget _productPreviewCard(
                 MaterialPageRoute(builder: (_) => const NotificationsScreen()),
               );
               await _load();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_balance),
+            tooltip: context.tr('Nearby Offices'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NearbyOfficesScreen()),
+              );
             },
           ),
         ],

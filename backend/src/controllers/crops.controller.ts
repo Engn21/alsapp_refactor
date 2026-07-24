@@ -89,7 +89,7 @@ async function replaceCropMetrics(
   }
 }
 
-function serializeCrop(crop: any) {
+export function serializeCrop(crop: any) {
   const metricMap = extractMetricMap(crop);
   const processed = processTypeMetrics(
     "crop",
@@ -201,6 +201,25 @@ async function maybeNotifySprayDue(crop: any) {
   }
 }
 
+// Shared by the Tracking screen (listCrops) and the AI assistant's
+// get_crops tool - keeps the query/serialize logic in one place.
+export async function listCropsForUser(userId: string) {
+  const crops = await prisma.crop.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      sprays: { orderBy: { sprayedAt: "desc" }, take: 5 },
+      harvests: { orderBy: { harvestedAt: "desc" }, take: 5 },
+      qualityLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
+      metrics: true,
+    },
+  });
+
+  await Promise.all(crops.map(maybeNotifySprayDue));
+
+  return crops.map(serializeCrop);
+}
+
 export async function listCrops(
   req: AuthedRequest,
   res: Response,
@@ -209,21 +228,7 @@ export async function listCrops(
   try {
     const owner = req.user?.id;
     if (!owner) return res.json([]);
-
-    const crops = await prisma.crop.findMany({
-      where: { userId: owner },
-      orderBy: { createdAt: "desc" },
-      include: {
-        sprays: { orderBy: { sprayedAt: "desc" }, take: 5 },
-        harvests: { orderBy: { harvestedAt: "desc" }, take: 5 },
-        qualityLogs: { orderBy: { measuredAt: "desc" }, take: 5 },
-        metrics: true,
-      },
-    });
-
-    await Promise.all(crops.map(maybeNotifySprayDue));
-
-    res.json(crops.map(serializeCrop));
+    res.json(await listCropsForUser(owner));
   } catch (err) {
     next(err);
   }
