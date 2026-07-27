@@ -18,6 +18,7 @@ model User {
   listings   MarketListing[]
   notifications Notification[]
   assistantMessages AssistantMessage[]
+  deviceTokens DeviceToken[]
 }
 
 enum Role {
@@ -307,6 +308,22 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Globally unique - a shared device re-logging in as a different farmer
+  // reassigns the token (see upsertDeviceToken) rather than erroring.
+  token      String   @unique
+  // Free-text so native Android/iOS registrations can reuse this same
+  // table later with no migration.
+  platform   String   @default("web")
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 enum ItemType {

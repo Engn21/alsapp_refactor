@@ -1,11 +1,24 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'navigation.dart';
 
-void main() => runApp(const ALSApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Push notifications are additive - if Firebase isn't configured yet
+  // (see firebase_options.dart) or initialization fails for any reason,
+  // the app must still start normally, just without push.
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    debugPrint('[main] Firebase.initializeApp() failed (push disabled): $e');
+  }
+  runApp(const ALSApp());
+}
 
 class ALSApp extends StatefulWidget {
   const ALSApp({super.key});

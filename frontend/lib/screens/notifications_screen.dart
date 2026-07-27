@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../l10n/app_localizations.dart';
+import '../navigation.dart';
 import '../widgets/language_selector.dart';
 import '../theme/app_theme.dart';
-import 'product_detail_screen.dart';
 
 // Displays user notifications with pull-to-refresh. Actionable alerts
 // (production/quality warnings) are visually distinct from informational
@@ -41,27 +41,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
     if (!mounted) return;
 
-    final cropId = n.relatedCropId;
-    final livestockId = n.relatedLivestockId;
-    if (cropId != null) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProductDetailScreen(
-            product: {'id': cropId, 'type': 'crop'},
-          ),
-        ),
-      );
-    } else if (livestockId != null) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProductDetailScreen(
-            product: {'id': livestockId, 'type': 'livestock'},
-          ),
-        ),
-      );
-    }
+    await openRelatedRecord(
+      cropId: n.relatedCropId,
+      livestockId: n.relatedLivestockId,
+    );
     if (mounted) await _refresh();
   }
 

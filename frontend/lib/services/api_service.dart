@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -6,6 +7,7 @@ import 'package:flutter/foundation.dart'
 import '../utils/jwt.dart'; // decodeJwtPayload & extractProfileFromClaims
 import '../navigation.dart';
 import '../screens/login_screen.dart';
+import 'push_service.dart';
 
 class ApiService {
   // -------- Base URL (legacy behavior + API_BASE_URL support) --------
@@ -144,6 +146,11 @@ class ApiService {
 
     // Confirm via /auth/me (LEGACY FLOW)
     await fetchMe();
+
+    // Best-effort: register this device for push notifications now that
+    // the session is populated. Never blocks/fails login itself.
+    unawaited(PushService.registerCurrentDevice());
+
     return token;
   }
 

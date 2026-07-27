@@ -477,6 +477,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _quickActionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          child: Column(
+            children: [
+              Icon(icon, color: Colors.white, size: 30),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Map<String, dynamic> _ensureMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) {
@@ -862,16 +897,6 @@ Widget _productPreviewCard(
         actions: [
           const LanguageSelector(),
           IconButton(
-            icon: const Icon(Icons.smart_toy_outlined),
-            tooltip: context.tr('AI Assistant'),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChatScreen()),
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.person),
             tooltip: context.tr('Profile'),
             onPressed: () {
@@ -917,16 +942,6 @@ Widget _productPreviewCard(
               await _load();
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.account_balance),
-            tooltip: context.tr('Nearby Offices'),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NearbyOfficesScreen()),
-              );
-            },
-          ),
         ],
       ),
       body: RefreshIndicator(
@@ -956,6 +971,42 @@ Widget _productPreviewCard(
               ],
             ),
             const SizedBox(height: 12),
+
+            // Prominent quick-action tiles for AI Assistant and Nearby
+            // Offices - the small AppBar icons alone weren't visible
+            // enough for farmers to discover these features.
+            Row(
+              children: [
+                Expanded(
+                  child: _quickActionTile(
+                    context,
+                    icon: Icons.smart_toy_outlined,
+                    label: context.tr('AI Assistant'),
+                    color: AppTheme.primary,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _quickActionTile(
+                    context,
+                    icon: Icons.account_balance,
+                    label: context.tr('Nearby Offices'),
+                    color: AppTheme.accent,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const NearbyOfficesScreen()),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             if (_hasWeatherDetails) _dailyWeatherCard(context),
             if (_hasWeatherDetails) const SizedBox(height: 12),
 
