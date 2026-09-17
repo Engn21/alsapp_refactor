@@ -34,7 +34,7 @@ function sanitizeReply(text: string): string {
   return text.replace(/<function[\s\S]*?<\/function>/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
-const MAX_GENERATION_RETRIES = 2;
+const MAX_GENERATION_RETRIES = 4;
 
 // Same malformed-generation issue as above, but sometimes severe enough
 // that Groq's own API rejects the request outright (400, code
@@ -69,12 +69,32 @@ export async function runAssistantTurn(
   const toolCallAudit: ToolCallAudit[] = [];
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-    const completion = await createCompletionWithRetry(client, {
-      model: MODEL,
-      messages,
-      tools: ASSISTANT_TOOLS,
-      max_completion_tokens: MAX_COMPLETION_TOKENS,
-    });
+    let completion;
+    try {
+      completion = await createCompletionWithRetry(client, {
+        model: MODEL,
+        messages,
+        tools: ASSISTANT_TOOLS,
+        max_completion_tokens: MAX_COMPLETION_TOKENS,
+      });
+    } catch (e: any) {
+      if (e?.error?.error?.code !== "tool_use_failed") throw e;
+      // Tool-calling generation is still broken after retries - fall back to
+      // a plain completion with no tools so the user gets some answer
+      // instead of the request hard-failing.
+      const fallback = await createCompletionWithRetry(client, {
+        model: MODEL,
+        messages,
+        max_completion_tokens: MAX_COMPLETION_TOKENS,
+      }).catch(() => null);
+      const replyText = sanitizeReply(fallback?.choices[0]?.message?.content ?? "");
+      return {
+        replyText:
+          replyText ||
+          "I'm having trouble looking that up right now - please try again in a moment.",
+        toolCallAudit,
+      };
+    }
 
     const choice = completion.choices[0];
     const message = choice?.message;

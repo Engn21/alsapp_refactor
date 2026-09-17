@@ -12,7 +12,10 @@ import '../widgets/language_selector.dart';
 // immediately) and failures stay visible with a retry affordance rather
 // than being silently dropped.
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final String conversationId;
+  final String? initialTitle;
+
+  const ChatScreen({super.key, required this.conversationId, this.initialTitle});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -41,7 +44,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadHistory() async {
-    final history = await ChatService.history();
+    final history = await ChatService.history(widget.conversationId);
     if (!mounted) return;
     setState(() {
       _messages
@@ -89,6 +92,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _dispatch(ChatMessage outgoing) async {
     final lang = Localizations.localeOf(context).languageCode;
     final result = await ChatService.send(
+      widget.conversationId,
       outgoing.content,
       lang: lang,
       lat: _lat,
@@ -200,7 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: Text(context.tr('AI Assistant')),
+        title: Text(widget.initialTitle ?? context.tr('AI Assistant')),
         actions: const [LanguageSelector()],
       ),
       body: Column(

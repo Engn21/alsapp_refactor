@@ -468,6 +468,13 @@ class AppLocalizations {
       'Too many messages, please wait a moment.':
           'Too many messages, please wait a moment.',
       'Retry': 'Retry',
+      'Conversations': 'Conversations',
+      'New chat': 'New chat',
+      'New conversation': 'New conversation',
+      'No conversations yet': 'No conversations yet',
+      'Start a new conversation to ask about your crops, livestock, or weather.':
+          'Start a new conversation to ask about your crops, livestock, or weather.',
+      'Delete conversation?': 'Delete conversation?',
       'Nearby Offices': 'Nearby Offices',
       'Call': 'Call',
       '{distance} km away': '{distance} km away',
@@ -917,6 +924,13 @@ class AppLocalizations {
       'Too many messages, please wait a moment.':
           'Çok fazla mesaj gönderdiniz, lütfen biraz bekleyin.',
       'Retry': 'Tekrar dene',
+      'Conversations': 'Sohbetler',
+      'New chat': 'Yeni sohbet',
+      'New conversation': 'Yeni sohbet',
+      'No conversations yet': 'Henüz sohbet yok',
+      'Start a new conversation to ask about your crops, livestock, or weather.':
+          'Ürünleriniz, hayvanlarınız veya hava durumu hakkında sormak için yeni bir sohbet başlatın.',
+      'Delete conversation?': 'Sohbet silinsin mi?',
       'Nearby Offices': 'Yakındaki Müdürlükler',
       'Call': 'Ara',
       '{distance} km away': '{distance} km uzakta',
@@ -1354,6 +1368,13 @@ class AppLocalizations {
       'Too many messages, please wait a moment.':
           'Trop de messages envoyés, veuillez patienter un instant.',
       'Retry': 'Réessayer',
+      'Conversations': 'Conversations',
+      'New chat': 'Nouvelle discussion',
+      'New conversation': 'Nouvelle discussion',
+      'No conversations yet': 'Aucune conversation pour le moment',
+      'Start a new conversation to ask about your crops, livestock, or weather.':
+          'Démarrez une nouvelle discussion pour poser une question sur vos cultures, votre élevage ou la météo.',
+      'Delete conversation?': 'Supprimer cette conversation ?',
       'Nearby Offices': 'Bureaux à proximité',
       'Call': 'Appeler',
       '{distance} km away': 'à {distance} km',

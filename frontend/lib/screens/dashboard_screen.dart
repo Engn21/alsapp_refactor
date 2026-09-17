@@ -13,7 +13,7 @@ import 'profile_screen.dart';
 import '../services/support_service.dart';
 import '../services/notification_service.dart';
 import 'notifications_screen.dart';
-import 'chat_screen.dart';
+import 'chat_conversations_screen.dart';
 import 'nearby_offices_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -985,7 +985,7 @@ Widget _productPreviewCard(
                     color: AppTheme.primary,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      MaterialPageRoute(builder: (_) => const ChatConversationsScreen()),
                     ),
                   ),
                 ),

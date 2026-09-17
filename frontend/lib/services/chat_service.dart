@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../models/chat_conversation.dart';
 import '../models/chat_message.dart';
 import 'api_service.dart';
 
@@ -26,12 +27,58 @@ class ChatService {
     return Options(headers: token != null ? {'Authorization': 'Bearer $token'} : null);
   }
 
-  /// Loads the farmer's assistant conversation history. Safe-fallback to
-  /// an empty list on error, matching NotificationService.list() - a
-  /// failed history load shouldn't block the chat screen from opening.
-  static Future<List<ChatMessage>> history() async {
+  /// Lists the farmer's assistant conversations, most recently active
+  /// first. Safe-fallback to an empty list on error, matching
+  /// NotificationService.list() - a failed load shouldn't block the screen.
+  static Future<List<ChatConversation>> conversations() async {
     try {
-      final r = await _dio.get('/assistant/messages', options: _authOptions());
+      final r = await _dio.get('/assistant/conversations', options: _authOptions());
+      if (r.statusCode == 200 && r.data is List) {
+        return (r.data as List)
+            .cast<Map<String, dynamic>>()
+            .map(ChatConversation.fromMap)
+            .toList();
+      }
+      debugPrint('[ChatService] conversations() unexpected response: ${r.statusCode}');
+    } catch (e) {
+      debugPrint('[ChatService] conversations() failed: $e');
+    }
+    return const <ChatConversation>[];
+  }
+
+  static Future<ChatConversation?> createConversation() async {
+    try {
+      final r = await _dio.post('/assistant/conversations', options: _authOptions());
+      if (r.statusCode == 201 && r.data is Map) {
+        return ChatConversation.fromMap(r.data as Map<String, dynamic>);
+      }
+      debugPrint('[ChatService] createConversation() unexpected response: ${r.statusCode}');
+    } catch (e) {
+      debugPrint('[ChatService] createConversation() failed: $e');
+    }
+    return null;
+  }
+
+  static Future<bool> deleteConversation(String conversationId) async {
+    try {
+      final r = await _dio.delete(
+        '/assistant/conversations/$conversationId',
+        options: _authOptions(),
+      );
+      return r.statusCode == 204;
+    } catch (e) {
+      debugPrint('[ChatService] deleteConversation() failed: $e');
+      return false;
+    }
+  }
+
+  /// Loads a single conversation's message history.
+  static Future<List<ChatMessage>> history(String conversationId) async {
+    try {
+      final r = await _dio.get(
+        '/assistant/conversations/$conversationId/messages',
+        options: _authOptions(),
+      );
       if (r.statusCode == 200 && r.data is List) {
         return (r.data as List)
             .cast<Map<String, dynamic>>()
@@ -46,6 +93,7 @@ class ChatService {
   }
 
   static Future<ChatSendResult> send(
+    String conversationId,
     String message, {
     required String lang,
     double? lat,
@@ -53,7 +101,7 @@ class ChatService {
   }) async {
     try {
       final r = await _dio.post(
-        '/assistant/message',
+        '/assistant/conversations/$conversationId/message',
         data: {
           'message': message,
           'lang': lang,

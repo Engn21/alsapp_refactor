@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { sendMessage, getHistory } from "../controllers/assistant.controller";
+import {
+  listConversations,
+  createConversation,
+  deleteConversation,
+  sendMessage,
+  getHistory,
+} from "../controllers/assistant.controller";
 import { assistantLimiter } from "../middleware/rateLimit";
 import { requireAuth } from "../middleware/auth";
 
@@ -7,10 +13,13 @@ const router = Router();
 
 router.use(requireAuth);
 
-// /api/assistant/messages - cheap DB read, no rate limit needed
-router.get("/messages", getHistory);
+// Cheap DB reads/writes, no rate limit needed.
+router.get("/conversations", listConversations);
+router.post("/conversations", createConversation);
+router.delete("/conversations/:id", deleteConversation);
+router.get("/conversations/:id/messages", getHistory);
 
-// /api/assistant/message - triggers Claude API calls, rate-limited
-router.post("/message", assistantLimiter, sendMessage);
+// Triggers Claude API calls, rate-limited.
+router.post("/conversations/:id/message", assistantLimiter, sendMessage);
 
 export default router;

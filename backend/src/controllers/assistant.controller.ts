@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 
 const MAX_HISTORY_MESSAGES = 20;
 const HISTORY_DISPLAY_LIMIT = 100;
+const TITLE_PREVIEW_LENGTH = 60;
 
 const SendMessageDto = z.object({
   message: z.string().trim().min(1).max(4000),
@@ -20,16 +21,83 @@ function toIso(date: Date) {
   return date.toISOString();
 }
 
+// Every conversation-scoped route needs to confirm the conversation both
+// exists and belongs to the caller before touching its messages.
+async function requireOwnedConversation(conversationId: string, owner: string) {
+  const conversation = await prisma.assistantConversation.findFirst({
+    where: { id: conversationId, userId: owner },
+  });
+  if (!conversation) {
+    throw Object.assign(new Error("Conversation not found"), { status: 404 });
+  }
+  return conversation;
+}
+
+export async function listConversations(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    const owner = req.user?.id;
+    if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
+
+    const conversations = await prisma.assistantConversation.findMany({
+      where: { userId: owner },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        messages: { where: { role: "user" }, orderBy: { createdAt: "asc" }, take: 1 },
+      },
+    });
+
+    res.json(
+      conversations.map((c) => ({
+        id: c.id,
+        title: c.messages[0]?.content.slice(0, TITLE_PREVIEW_LENGTH) ?? null,
+        updatedAt: toIso(c.updatedAt),
+      })),
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createConversation(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    const owner = req.user?.id;
+    if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
+
+    const conversation = await prisma.assistantConversation.create({ data: { userId: owner } });
+
+    res.status(201).json({ id: conversation.id, title: null, updatedAt: toIso(conversation.updatedAt) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteConversation(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    const owner = req.user?.id;
+    if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
+
+    await requireOwnedConversation(req.params.id, owner);
+    await prisma.assistantConversation.delete({ where: { id: req.params.id } });
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function sendMessage(req: AuthedRequest, res: Response, next: NextFunction) {
   try {
     const owner = req.user?.id;
     if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
 
+    const conversationId = req.params.id;
+    await requireOwnedConversation(conversationId, owner);
+
     const dto = SendMessageDto.parse(req.body);
     const lang = dto.lang ?? "tr";
 
     const historyRows = await prisma.assistantMessage.findMany({
-      where: { userId: owner },
+      where: { conversationId },
       orderBy: { createdAt: "desc" },
       take: MAX_HISTORY_MESSAGES,
     });
@@ -55,17 +123,22 @@ export async function sendMessage(req: AuthedRequest, res: Response, next: NextF
 
     await prisma.$transaction([
       prisma.assistantMessage.create({
-        data: { userId: owner, role: "user", content: dto.message },
+        data: { userId: owner, conversationId, role: "user", content: dto.message },
       }),
       prisma.assistantMessage.create({
         data: {
           userId: owner,
+          conversationId,
           role: "assistant",
           content: turn.replyText,
           toolCalls: turn.toolCallAudit.length
             ? (turn.toolCallAudit as unknown as Prisma.InputJsonValue)
             : undefined,
         },
+      }),
+      prisma.assistantConversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
       }),
     ]);
 
@@ -83,8 +156,11 @@ export async function getHistory(req: AuthedRequest, res: Response, next: NextFu
     const owner = req.user?.id;
     if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
 
+    const conversationId = req.params.id;
+    await requireOwnedConversation(conversationId, owner);
+
     const rows = await prisma.assistantMessage.findMany({
-      where: { userId: owner },
+      where: { conversationId },
       orderBy: { createdAt: "desc" },
       take: HISTORY_DISPLAY_LIMIT,
     });

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../l10n/app_localizations.dart';
 import '../navigation.dart';
+import '../utils/relative_time.dart';
 import '../widgets/language_selector.dart';
 import '../theme/app_theme.dart';
 
@@ -46,21 +47,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       livestockId: n.relatedLivestockId,
     );
     if (mounted) await _refresh();
-  }
-
-  String _relativeTime(BuildContext context, DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return context.tr('Just now');
-    if (diff.inMinutes < 60) {
-      return context.tr('{count}m ago', params: {'count': '${diff.inMinutes}'});
-    }
-    if (diff.inHours < 24) {
-      return context.tr('{count}h ago', params: {'count': '${diff.inHours}'});
-    }
-    if (diff.inDays < 7) {
-      return context.tr('{count}d ago', params: {'count': '${diff.inDays}'});
-    }
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -223,7 +209,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 Row(
                                   children: [
                                     Text(
-                                      _relativeTime(context, n.createdAt),
+                                      relativeTime(context, n.createdAt),
                                       style: TextStyle(
                                         fontSize: 11.5,
                                         color: Colors.grey.shade500,
