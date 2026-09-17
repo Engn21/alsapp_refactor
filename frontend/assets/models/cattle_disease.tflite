@@ -1,0 +1,3 @@
+PLACEHOLDER - not a real TFLite model.
+Train the real one with ml/cattle_disease_train.ipynb (see ml/README.md) and
+overwrite this file with the downloaded cattle_disease.tflite.

@@ -475,6 +475,19 @@ class AppLocalizations {
       'Start a new conversation to ask about your crops, livestock, or weather.':
           'Start a new conversation to ask about your crops, livestock, or weather.',
       'Delete conversation?': 'Delete conversation?',
+      'Diagnose with photo': 'Diagnose with photo',
+      'Take a photo': 'Take a photo',
+      'Choose from gallery': 'Choose from gallery',
+      'Diagnosis model is not available yet.': 'Diagnosis model is not available yet.',
+      'Diagnosis result': 'Diagnosis result',
+      '{value}% confidence': '{value}% confidence',
+      'This is an AI estimate from an on-device model, not a confirmed diagnosis.':
+          'This is an AI estimate from an on-device model, not a confirmed diagnosis.',
+      'Ask the assistant': 'Ask the assistant',
+      'Photo analysis: {subject} - {finding} ({confidence}% confidence). What should I do?':
+          'Photo analysis: {subject} - {finding} ({confidence}% confidence). What should I do?',
+      'crop': 'crop',
+      'cattle': 'cattle',
       'Nearby Offices': 'Nearby Offices',
       'Call': 'Call',
       '{distance} km away': '{distance} km away',
@@ -931,6 +944,19 @@ class AppLocalizations {
       'Start a new conversation to ask about your crops, livestock, or weather.':
           'Ürünleriniz, hayvanlarınız veya hava durumu hakkında sormak için yeni bir sohbet başlatın.',
       'Delete conversation?': 'Sohbet silinsin mi?',
+      'Diagnose with photo': 'Fotoğrafla teşhis et',
+      'Take a photo': 'Fotoğraf çek',
+      'Choose from gallery': 'Galeriden seç',
+      'Diagnosis model is not available yet.': 'Teşhis modeli henüz hazır değil.',
+      'Diagnosis result': 'Teşhis sonucu',
+      '{value}% confidence': '%{value} güven',
+      'This is an AI estimate from an on-device model, not a confirmed diagnosis.':
+          'Bu, cihaz üzerindeki yapay zeka modelinin bir tahminidir, kesin teşhis değildir.',
+      'Ask the assistant': 'Asistana sor',
+      'Photo analysis: {subject} - {finding} ({confidence}% confidence). What should I do?':
+          'Fotoğraf analizi: {subject} - {finding} (%{confidence} güven). Bu konuda ne yapmalıyım?',
+      'crop': 'ürün',
+      'cattle': 'sığır',
       'Nearby Offices': 'Yakındaki Müdürlükler',
       'Call': 'Ara',
       '{distance} km away': '{distance} km uzakta',
@@ -1375,6 +1401,20 @@ class AppLocalizations {
       'Start a new conversation to ask about your crops, livestock, or weather.':
           'Démarrez une nouvelle discussion pour poser une question sur vos cultures, votre élevage ou la météo.',
       'Delete conversation?': 'Supprimer cette conversation ?',
+      'Diagnose with photo': 'Diagnostiquer avec une photo',
+      'Take a photo': 'Prendre une photo',
+      'Choose from gallery': 'Choisir dans la galerie',
+      'Diagnosis model is not available yet.':
+          "Le modèle de diagnostic n'est pas encore disponible.",
+      'Diagnosis result': 'Résultat du diagnostic',
+      '{value}% confidence': 'confiance de {value}%',
+      'This is an AI estimate from an on-device model, not a confirmed diagnosis.':
+          "Il s'agit d'une estimation par IA d'un modèle local, pas d'un diagnostic confirmé.",
+      'Ask the assistant': "Demander à l'assistant",
+      'Photo analysis: {subject} - {finding} ({confidence}% confidence). What should I do?':
+          'Analyse photo : {subject} - {finding} (confiance de {confidence}%). Que dois-je faire ?',
+      'crop': 'culture',
+      'cattle': 'bovin',
       'Nearby Offices': 'Bureaux à proximité',
       'Call': 'Appeler',
       '{distance} km away': 'à {distance} km',

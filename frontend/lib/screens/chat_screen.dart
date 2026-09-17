@@ -14,8 +14,18 @@ import '../widgets/language_selector.dart';
 class ChatScreen extends StatefulWidget {
   final String conversationId;
   final String? initialTitle;
+  // Auto-sent once history has loaded - used by flows that hand off into a
+  // fresh conversation with something to say already in hand (e.g. photo
+  // diagnosis results), so the farmer sees it arrive like a normal message
+  // instead of having to type it themselves.
+  final String? initialMessage;
 
-  const ChatScreen({super.key, required this.conversationId, this.initialTitle});
+  const ChatScreen({
+    super.key,
+    required this.conversationId,
+    this.initialTitle,
+    this.initialMessage,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -33,7 +43,12 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadHistory();
+    _loadHistory().then((_) {
+      if (widget.initialMessage != null && mounted) {
+        _controller.text = widget.initialMessage!;
+        _send();
+      }
+    });
     _loadLocation();
   }
 

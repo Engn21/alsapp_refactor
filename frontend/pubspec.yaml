@@ -28,6 +28,9 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
+  image_picker: ^1.2.2
+  tflite_flutter: ^0.12.1
+  image: ^4.10.1
 
 dev_dependencies:
   flutter_test:
@@ -40,6 +43,10 @@ flutter:
   # Eğer resim, ikon vb. eklersen burada tanımla
   assets:
     - assets/logo.png
+    - assets/models/plant_disease.tflite
+    - assets/models/plant_labels.txt
+    - assets/models/cattle_disease.tflite
+    - assets/models/cattle_labels.txt
 
   # 🌐 L10n (Localization) yapılandırması
   generate: true

@@ -1,9 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import '../services/chat_service.dart';
+import '../services/disease_classifier_service.dart';
 import '../l10n/app_localizations.dart';
 import '../data/type_fields.dart';
 import '../widgets/type_specific_fields.dart';
+import 'chat_screen.dart';
 
 // Detailed view for a single crop or livestock item.
 class ProductDetailScreen extends StatefulWidget {
@@ -105,6 +109,128 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final species =
         (_source['species'] ?? _source['animalType'])?.toString().toLowerCase();
     return species == 'bee';
+  }
+
+  // v1 of the on-device diagnosis model only covers cattle - public
+  // datasets for other livestock species are too sparse yet (see ml/README).
+  bool get _isCattle {
+    if (_isCrop) return false;
+    final species =
+        (_source['species'] ?? _source['animalType'])?.toString().toLowerCase();
+    return species == 'cow';
+  }
+
+  bool get _canDiagnoseWithPhoto => _isCrop || _isCattle;
+
+  bool _diagnosing = false;
+
+  Future<void> _diagnoseWithPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(context.tr('Take a photo')),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text(context.tr('Choose from gallery')),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final picked = await ImagePicker().pickImage(source: source, maxWidth: 1024);
+    if (picked == null || !mounted) return;
+
+    setState(() => _diagnosing = true);
+    final model = _isCrop ? DiagnosisModel.plant : DiagnosisModel.cattle;
+    final result = await DiseaseClassifierService.classify(picked, model);
+    if (!mounted) return;
+    setState(() => _diagnosing = false);
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Diagnosis model is not available yet.'))),
+      );
+      return;
+    }
+
+    final prettyLabel =
+        result.label.replaceAll('___', ' - ').replaceAll('_', ' ').trim();
+    final confidencePct = (result.confidence * 100).clamp(0, 100).toStringAsFixed(0);
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(context.tr('Diagnosis result')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(prettyLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(context.tr('{value}% confidence', params: {'value': confidencePct})),
+            const SizedBox(height: 12),
+            Text(
+              context.tr(
+                  'This is an AI estimate from an on-device model, not a confirmed diagnosis.'),
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(context.tr('Close')),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _askAssistantAboutDiagnosis(prettyLabel, confidencePct);
+            },
+            child: Text(context.tr('Ask the assistant')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _askAssistantAboutDiagnosis(String label, String confidencePct) async {
+    final data = _source;
+    final subject = _isCrop
+        ? (data['cropType'] ?? data['name'] ?? context.tr('crop')).toString()
+        : (data['name'] ?? context.tr('cattle')).toString();
+    final message = context.tr(
+      'Photo analysis: {subject} - {finding} ({confidence}% confidence). What should I do?',
+      params: {'subject': subject, 'finding': label, 'confidence': confidencePct},
+    );
+
+    final conversation = await ChatService.createConversation();
+    if (!mounted) return;
+    if (conversation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Failed to send. Tap to retry.'))),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversationId: conversation.id,
+          initialMessage: message,
+        ),
+      ),
+    );
   }
 
   @override
@@ -1257,6 +1383,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         padding: const EdgeInsets.all(16),
                         children: [
                           if (highlightCard != null) highlightCard,
+                          if (_canDiagnoseWithPhoto) ...[
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: _diagnosing ? null : _diagnoseWithPhoto,
+                              icon: _diagnosing
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.camera_alt_outlined),
+                              label: Text(context.tr('Diagnose with photo')),
+                            ),
+                          ],
                           if (typeSpecificCard != null) ...[
                             const SizedBox(height: 16),
                             typeSpecificCard,
