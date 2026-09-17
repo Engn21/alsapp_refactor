@@ -99,20 +99,18 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
         title: Text(context.tr('Conversations')),
-        actions: [
-          IconButton(
-            icon: _creating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.add_comment_outlined),
-            tooltip: context.tr('New chat'),
-            onPressed: _creating ? null : _newChat,
-          ),
-          const LanguageSelector(),
-        ],
+        actions: const [LanguageSelector()],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _creating ? null : _newChat,
+        icon: _creating
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.add_comment_outlined),
+        label: Text(context.tr('New chat')),
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
@@ -154,12 +152,6 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.grey.shade600),
                             ),
-                            const SizedBox(height: 16),
-                            FilledButton.icon(
-                              onPressed: _creating ? null : _newChat,
-                              icon: const Icon(Icons.add_comment_outlined),
-                              label: Text(context.tr('New chat')),
-                            ),
                           ],
                         ),
                       ),
@@ -169,7 +161,9 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
               );
             }
             return ListView.separated(
-              padding: const EdgeInsets.all(12),
+              // Extra bottom padding so the FAB doesn't sit on top of the
+              // last row.
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
