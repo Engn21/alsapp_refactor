@@ -26,7 +26,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = NotificationService.list());
+    // Note: must be a block body - `setState(() => _future = ...)` returns
+    // the assigned Future as the closure's value, which trips Flutter's
+    // "setState callback returned a Future" assertion and skips the
+    // rebuild entirely, leaving the list stuck on stale data.
+    setState(() {
+      _future = NotificationService.list();
+    });
   }
 
   Future<void> _markAllRead(List<NotificationItem> items) async {
