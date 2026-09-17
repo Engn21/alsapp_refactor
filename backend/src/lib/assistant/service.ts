@@ -27,13 +27,26 @@ export interface AssistantTurnResult {
   toolCallAudit: ToolCallAudit[];
 }
 
-// Llama models on Groq occasionally leak their internal tool-call
-// pseudo-XML into the visible reply text (e.g. malformed
-// "<function=get_crops-null</function>" fragments) instead of using the
-// proper tool_calls mechanism, especially in non-English replies. Strip
-// any such fragments as a safety net regardless of root cause.
+// Models on Groq occasionally leak formatting the system prompt explicitly
+// forbids - internal tool-call pseudo-XML (e.g. malformed
+// "<function=get_crops-null</function>" fragments), stray HTML tags, or
+// markdown tables - into the visible reply, which render as literal
+// garbage in the app's plain-text chat bubble. Strip it as a safety net
+// regardless of root cause.
 function sanitizeReply(text: string): string {
-  return text.replace(/<function[\s\S]*?<\/function>/g, "").replace(/\s{2,}/g, " ").trim();
+  return text
+    .replace(/<function[\s\S]*?<\/function>/g, "")
+    .replace(/<\/?[a-z][a-z0-9]*[^>]*>/gi, "") // stray HTML tags, e.g. <br>
+    .split("\n")
+    .filter((line) => !/^[\s|:-]+$/.test(line)) // markdown table separator rows
+    .join("\n")
+    .replace(/\|/g, " ") // remaining table pipes
+    .replace(/^#{1,6}\s*/gm, "") // markdown headers
+    .replace(/\*\*([^*]+)\*\*/g, "$1") // bold
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "$1") // italics
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 const MAX_GENERATION_RETRIES = 4;
