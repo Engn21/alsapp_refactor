@@ -7,7 +7,9 @@ import { ASSISTANT_TOOLS } from "./tools";
 import { buildSystemPrompt } from "./systemPrompt";
 import { toolExecutors, ToolCtx } from "./toolExecutors";
 
-const MODEL = "llama-3.3-70b-versatile";
+// llama-3.3-70b-versatile was retired from Groq's catalog; gpt-oss-120b is
+// the closest available replacement that still supports tool calling.
+const MODEL = "openai/gpt-oss-120b";
 const MAX_COMPLETION_TOKENS = 1024;
 // Prevents a pathological repeated-tool-call loop from running unbounded
 // cost on a single user message.

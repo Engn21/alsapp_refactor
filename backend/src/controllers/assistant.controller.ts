@@ -121,9 +121,21 @@ export async function sendMessage(req: AuthedRequest, res: Response, next: NextF
       });
     }
 
+    const now = Date.now();
     await prisma.$transaction([
+      // Explicit, distinct createdAt values: within a single transaction
+      // Postgres's CURRENT_TIMESTAMP (Prisma's @default(now())) is frozen
+      // at transaction start, so both rows would otherwise get an
+      // identical timestamp and sort ambiguously - sometimes rendering
+      // the reply above the question it answers.
       prisma.assistantMessage.create({
-        data: { userId: owner, conversationId, role: "user", content: dto.message },
+        data: {
+          userId: owner,
+          conversationId,
+          role: "user",
+          content: dto.message,
+          createdAt: new Date(now),
+        },
       }),
       prisma.assistantMessage.create({
         data: {
@@ -134,6 +146,7 @@ export async function sendMessage(req: AuthedRequest, res: Response, next: NextF
           toolCalls: turn.toolCallAudit.length
             ? (turn.toolCallAudit as unknown as Prisma.InputJsonValue)
             : undefined,
+          createdAt: new Date(now + 1),
         },
       }),
       prisma.assistantConversation.update({
