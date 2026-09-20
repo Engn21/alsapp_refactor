@@ -13,7 +13,9 @@ export function getGroqClient(): Groq {
     if (!apiKey) {
       throw Object.assign(new Error("GROQ_API_KEY missing"), { status: 500 });
     }
-    client = new Groq({ apiKey });
+    // Without an explicit cap a stalled upstream call blocks the request (and
+    // the app's send spinner) for the SDK default of 60s x 3 attempts.
+    client = new Groq({ apiKey, timeout: 30_000, maxRetries: 1 });
   }
   return client;
 }

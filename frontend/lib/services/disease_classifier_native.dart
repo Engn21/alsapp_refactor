@@ -33,7 +33,11 @@ Future<bool> _ensureLoaded(DiagnosisModel model) async {
 /// Real on-device inference (Android/iOS/desktop - tflite_flutter uses
 /// dart:ffi, which isn't available on web; see disease_classifier_web.dart
 /// for that platform's stub).
-Future<DiagnosisResult?> classify(XFile photo, DiagnosisModel model) async {
+Future<DiagnosisResult?> classify(
+  XFile photo,
+  DiagnosisModel model, {
+  String? labelPrefix,
+}) async {
   if (!await _ensureLoaded(model)) return null;
   final interpreter = _interpreters[model]!;
   final labels = _labels[model]!;
@@ -42,7 +46,14 @@ Future<DiagnosisResult?> classify(XFile photo, DiagnosisModel model) async {
     final bytes = await photo.readAsBytes();
     final decoded = img.decodeImage(bytes);
     if (decoded == null) return null;
-    final resized = img.copyResize(decoded, width: _inputSize, height: _inputSize);
+    // Bilinear, like tf.image.resize in the training notebooks - copyResize
+    // defaults to nearest-neighbour, which shifts confidences on real photos.
+    final resized = img.copyResize(
+      decoded,
+      width: _inputSize,
+      height: _inputSize,
+      interpolation: img.Interpolation.linear,
+    );
 
     final input = [
       List.generate(
@@ -58,11 +69,20 @@ Future<DiagnosisResult?> classify(XFile photo, DiagnosisModel model) async {
     interpreter.run(input, output);
 
     final scores = output[0];
-    var bestIndex = 0;
-    for (var i = 1; i < scores.length; i++) {
+    final candidates = [
+      for (var i = 0; i < labels.length; i++)
+        if (labelPrefix == null || labels[i].startsWith(labelPrefix)) i,
+    ];
+    if (candidates.isEmpty) return null;
+
+    var bestIndex = candidates.first;
+    var total = 0.0;
+    for (final i in candidates) {
+      total += scores[i];
       if (scores[i] > scores[bestIndex]) bestIndex = i;
     }
-    return DiagnosisResult(label: labels[bestIndex], confidence: scores[bestIndex]);
+    final confidence = total > 0 ? scores[bestIndex] / total : 0.0;
+    return DiagnosisResult(label: labels[bestIndex], confidence: confidence);
   } catch (e) {
     debugPrint('[DiseaseClassifier] classify($model) failed: $e');
     return null;

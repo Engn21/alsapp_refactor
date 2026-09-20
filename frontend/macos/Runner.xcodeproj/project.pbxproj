@@ -240,6 +240,7 @@
 				33CC10EB2044A3C60003C045 /* Resources */,
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
+				A1B2C3D4E5F60718293A4B5C /* Bundle TFLite library */,
 				8881B5D5028F477521CA1EA3 /* [CP] Embed Pods Frameworks */,
 				9F0CC417D224F16A73296C83 /* [CP] Copy Pods Resources */,
 			);
@@ -341,6 +342,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "echo \"$PRODUCT_NAME.app\" > \"$PROJECT_DIR\"/Flutter/ephemeral/.app_filename && \"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh embed\n";
+		};
+		A1B2C3D4E5F60718293A4B5C /* Bundle TFLite library */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle TFLite library";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# tflite_flutter opens <app>/Contents/Resources/libtensorflowlite_c-mac.dylib on macOS\n# but its podspec doesn't ship it, so on-device photo diagnosis silently fails to load.\nset -e\nSRC=\"${SRCROOT}/Flutter/ephemeral/.symlinks/plugins/tflite_flutter/macos/libtensorflowlite_c-mac.dylib\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources\"\nmkdir -p \"$DEST\"\ncp -f \"$SRC\" \"$DEST/libtensorflowlite_c-mac.dylib\"\nif [ -n \"${EXPANDED_CODE_SIGN_IDENTITY}\" ]; then\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"$DEST/libtensorflowlite_c-mac.dylib\"\nfi\n";
 		};
 		33CC111E2044C6BF0003C045 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;

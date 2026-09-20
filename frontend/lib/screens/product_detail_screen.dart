@@ -120,7 +120,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return species == 'cow';
   }
 
-  bool get _canDiagnoseWithPhoto => _isCrop || _isCattle;
+  // The plant model is trained on PlantVillage, which covers only a handful
+  // of the app's crop types. Anything else (wheat, olive, cotton, ...) would
+  // get a confident answer about the wrong species, so it isn't offered.
+  // Soybean is left out on purpose: PlantVillage has only a "healthy" class
+  // for it, so the model could never report a disease.
+  static const _plantModelLabelPrefix = {
+    'corn': 'Corn_(maize)___',
+    'tomato': 'Tomato___',
+    'grape': 'Grape___',
+  };
+
+  String? get _cropLabelPrefix {
+    if (!_isCrop) return null;
+    final type = _source['cropType']?.toString().trim().toLowerCase();
+    return type == null ? null : _plantModelLabelPrefix[type];
+  }
+
+  bool get _canDiagnoseWithPhoto => _cropLabelPrefix != null || _isCattle;
 
   bool _diagnosing = false;
 
@@ -152,7 +169,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     setState(() => _diagnosing = true);
     final model = _isCrop ? DiagnosisModel.plant : DiagnosisModel.cattle;
-    final result = await DiseaseClassifierService.classify(picked, model);
+    final result = await DiseaseClassifierService.classify(
+      picked,
+      model,
+      labelPrefix: _cropLabelPrefix,
+    );
     if (!mounted) return;
     setState(() => _diagnosing = false);
 

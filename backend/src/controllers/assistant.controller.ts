@@ -10,6 +10,15 @@ const MAX_HISTORY_MESSAGES = 20;
 const HISTORY_DISPLAY_LIMIT = 100;
 const TITLE_PREVIEW_LENGTH = 60;
 
+// Messages written before the 1ms offset in sendMessage (see below) share an
+// identical createdAt with their reply, so createdAt alone leaves their order
+// undefined. The role enum is declared user-then-assistant, so descending role
+// as a tie-break puts the reply after its question once the list is reversed.
+const NEWEST_FIRST: Prisma.AssistantMessageOrderByWithRelationInput[] = [
+  { createdAt: "desc" },
+  { role: "desc" },
+];
+
 const SendMessageDto = z.object({
   message: z.string().trim().min(1).max(4000),
   lang: z.enum(["en", "tr", "fr"]).optional(),
@@ -98,7 +107,7 @@ export async function sendMessage(req: AuthedRequest, res: Response, next: NextF
 
     const historyRows = await prisma.assistantMessage.findMany({
       where: { conversationId },
-      orderBy: { createdAt: "desc" },
+      orderBy: NEWEST_FIRST,
       take: MAX_HISTORY_MESSAGES,
     });
     const history: ChatCompletionMessageParam[] = historyRows
@@ -174,7 +183,7 @@ export async function getHistory(req: AuthedRequest, res: Response, next: NextFu
 
     const rows = await prisma.assistantMessage.findMany({
       where: { conversationId },
-      orderBy: { createdAt: "desc" },
+      orderBy: NEWEST_FIRST,
       take: HISTORY_DISPLAY_LIMIT,
     });
 

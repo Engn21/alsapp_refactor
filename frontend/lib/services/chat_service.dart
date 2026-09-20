@@ -20,7 +20,14 @@ class ChatSendResult {
 }
 
 class ChatService {
-  static final Dio _dio = Dio(BaseOptions(baseUrl: ApiService.baseUrl));
+  // Explicit timeouts: with Dio's defaults (none) a stalled backend leaves the
+  // send spinner up forever and the farmer can neither retry nor type. The
+  // receive timeout is generous because a reply can span several tool calls.
+  static final Dio _dio = Dio(BaseOptions(
+    baseUrl: ApiService.baseUrl,
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 90),
+  ));
 
   static Options _authOptions() {
     final token = ApiService.session?.token;

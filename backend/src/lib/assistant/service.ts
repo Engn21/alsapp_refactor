@@ -15,6 +15,30 @@ const MAX_COMPLETION_TOKENS = 1024;
 // cost on a single user message.
 const MAX_TOOL_ITERATIONS = 6;
 
+// Canned replies shown when the model gives nothing usable. Keyed by the
+// app's UI language so a Turkish or French farmer doesn't get English here.
+const CANNED_REPLIES: Record<string, Record<"lookupFailed" | "rephrase" | "unfinished", string>> = {
+  en: {
+    lookupFailed: "I'm having trouble looking that up right now - please try again in a moment.",
+    rephrase: "I'm not sure how to answer that - could you rephrase?",
+    unfinished: "I looked into a few things but couldn't finish - could you rephrase your question?",
+  },
+  tr: {
+    lookupFailed: "Şu an buna bakamıyorum - lütfen biraz sonra tekrar dene.",
+    rephrase: "Bunu nasıl yanıtlayacağımdan emin değilim - sorunu farklı şekilde sorabilir misin?",
+    unfinished: "Birkaç şeye baktım ama sonuca varamadım - sorunu farklı şekilde sorabilir misin?",
+  },
+  fr: {
+    lookupFailed: "Je n'arrive pas à consulter cela pour le moment - réessayez dans un instant.",
+    rephrase: "Je ne sais pas comment répondre à cela - pouvez-vous reformuler ?",
+    unfinished: "J'ai regardé plusieurs choses sans pouvoir conclure - pouvez-vous reformuler votre question ?",
+  },
+};
+
+function cannedReply(lang: string, key: "lookupFailed" | "rephrase" | "unfinished"): string {
+  return (CANNED_REPLIES[lang] ?? CANNED_REPLIES.tr)[key];
+}
+
 export interface ToolCallAudit {
   toolName: string;
   input: unknown;
@@ -104,9 +128,7 @@ export async function runAssistantTurn(
       }).catch(() => null);
       const replyText = sanitizeReply(fallback?.choices[0]?.message?.content ?? "");
       return {
-        replyText:
-          replyText ||
-          "I'm having trouble looking that up right now - please try again in a moment.",
+        replyText: replyText || cannedReply(ctx.lang, "lookupFailed"),
         toolCallAudit,
       };
     }
@@ -118,7 +140,7 @@ export async function runAssistantTurn(
     if (choice?.finish_reason !== "tool_calls" || !toolCalls?.length) {
       const replyText = sanitizeReply(message?.content ?? "");
       return {
-        replyText: replyText || "I'm not sure how to answer that - could you rephrase?",
+        replyText: replyText || cannedReply(ctx.lang, "rephrase"),
         toolCallAudit,
       };
     }
@@ -165,8 +187,7 @@ export async function runAssistantTurn(
   // Loop exhausted without a final answer - return whatever we have
   // rather than looping forever or erroring out to the user.
   return {
-    replyText:
-      "I looked into a few things but couldn't finish - could you rephrase your question?",
+    replyText: cannedReply(ctx.lang, "unfinished"),
     toolCallAudit,
   };
 }

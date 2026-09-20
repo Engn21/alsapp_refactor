@@ -31,7 +31,16 @@ class DiseaseClassifierService {
   /// Returns null if this platform doesn't support on-device inference,
   /// the model asset isn't available yet (not trained/shipped), or the
   /// photo couldn't be classified for any other reason.
-  static Future<DiagnosisResult?> classify(XFile photo, DiagnosisModel model) {
-    return impl.classify(photo, model);
+  ///
+  /// [labelPrefix] restricts the answer to labels starting with it (e.g.
+  /// `Tomato___`) and renormalizes the confidence over just those - the
+  /// app already knows which crop the photo is of, so the model shouldn't be
+  /// free to answer with another species' disease.
+  static Future<DiagnosisResult?> classify(
+    XFile photo,
+    DiagnosisModel model, {
+    String? labelPrefix,
+  }) {
+    return impl.classify(photo, model, labelPrefix: labelPrefix);
   }
 }
