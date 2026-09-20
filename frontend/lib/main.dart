@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
@@ -11,11 +12,17 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Push notifications are additive - if Firebase isn't configured yet
   // (see firebase_options.dart) or initialization fails for any reason,
-  // the app must still start normally, just without push.
-  try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  } catch (e) {
-    debugPrint('[main] Firebase.initializeApp() failed (push disabled): $e');
+  // the app must still start normally, just without push. On macOS
+  // specifically, the placeholder credentials make FirebaseCore's native
+  // init throw an uncaught NSException that crashes the whole process
+  // before this try/catch ever runs, so skip it there entirely until
+  // firebase_options.dart has real values.
+  if (defaultTargetPlatform != TargetPlatform.macOS) {
+    try {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    } catch (e) {
+      debugPrint('[main] Firebase.initializeApp() failed (push disabled): $e');
+    }
   }
   runApp(const ALSApp());
 }
