@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/bottom_navigation.dart';
 import '../widgets/language_selector.dart';
+import '../utils/type_labels.dart';
 import 'product_list_screen.dart';
 import 'supports_list_screen.dart';
 import 'weather_screen.dart';
@@ -566,6 +567,8 @@ Widget _productPreviewCard(
     final isLivestock = typeRaw == 'livestock';
     final icon = isLivestock ? Icons.pets : Icons.agriculture;
 
+    // Raw value: also what the list screen is asked to focus on, so it must
+    // stay untranslated. Only the shown title is translated.
     final titleBase = isLivestock
         ? (item['species'] ??
                 item['animalType'] ??
@@ -575,7 +578,8 @@ Widget _productPreviewCard(
 
     final specific =
         (item['specificType'] ?? item['breed'] ?? '').toString().trim();
-    final title = specific.isNotEmpty ? '$titleBase ($specific)' : titleBase;
+    final shownBase = typeLabel(context, titleBase);
+    final title = specific.isNotEmpty ? '$shownBase ($specific)' : shownBase;
 
     final List<Widget> chips = [];
     final highlights = item['trackingHighlights'];

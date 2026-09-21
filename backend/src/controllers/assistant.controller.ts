@@ -26,6 +26,15 @@ const SendMessageDto = z.object({
   lon: z.number().optional(),
 });
 
+// A photo diagnosis is produced entirely on the phone (own on-device model,
+// nothing goes to the LLM), so this only stores the resulting exchange in the
+// conversation - the farmer keeps it in their history and the assistant sees
+// it as context for any follow-up question.
+const SavePhotoDiagnosisDto = z.object({
+  userText: z.string().trim().min(1).max(200),
+  replyText: z.string().trim().min(1).max(1000),
+});
+
 function toIso(date: Date) {
   return date.toISOString();
 }
@@ -165,6 +174,40 @@ export async function sendMessage(req: AuthedRequest, res: Response, next: NextF
     ]);
 
     res.json({ reply: turn.replyText });
+  } catch (err: any) {
+    if (err?.name === "ZodError") {
+      return res.status(400).json({ message: "Invalid payload", issues: err.issues });
+    }
+    next(err);
+  }
+}
+
+export async function savePhotoDiagnosis(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    const owner = req.user?.id;
+    if (!owner) throw Object.assign(new Error("Unauthorized"), { status: 401 });
+
+    const conversationId = req.params.id;
+    await requireOwnedConversation(conversationId, owner);
+
+    const dto = SavePhotoDiagnosisDto.parse(req.body);
+
+    // Same explicit 1ms offset as sendMessage, so the reply sorts after the photo.
+    const now = Date.now();
+    await prisma.$transaction([
+      prisma.assistantMessage.create({
+        data: { userId: owner, conversationId, role: "user", content: dto.userText, createdAt: new Date(now) },
+      }),
+      prisma.assistantMessage.create({
+        data: { userId: owner, conversationId, role: "assistant", content: dto.replyText, createdAt: new Date(now + 1) },
+      }),
+      prisma.assistantConversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      }),
+    ]);
+
+    res.status(204).send();
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return res.status(400).json({ message: "Invalid payload", issues: err.issues });

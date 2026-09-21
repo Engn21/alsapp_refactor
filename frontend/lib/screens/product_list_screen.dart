@@ -8,6 +8,7 @@ import '../widgets/language_selector.dart';
 import 'product_detail_screen.dart';
 import '../data/type_fields.dart';
 import '../widgets/type_specific_fields.dart';
+import '../utils/type_labels.dart';
 
 // Lists all products and supports quick add/edit.
 class ProductListScreen extends StatefulWidget {
@@ -90,9 +91,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
   (String title, String subtitle) _present(
       BuildContext context, Map<String, dynamic> it) {
     // Title precedence: species > name > cropType > id.
-    String title =
+    String title = typeLabel(
+        context,
         (it['species'] ?? it['name'] ?? it['cropType'] ?? it['id'] ?? 'Item')
-            .toString();
+            .toString());
     final specific =
         (it['specificType'] ?? it['breed'] ?? '').toString().trim();
     if (specific.isNotEmpty) {
@@ -282,32 +284,16 @@ class _AddItemFormState extends State<_AddItemForm> {
   String? _selectedCropType;
   String? _selectedLivestockType;
 
-  // 10 crop types.
-  final List<Map<String, String>> _cropTypes = [
-    {'value': 'wheat', 'label': 'Buğday'},
-    {'value': 'sugar beet', 'label': 'Pancar'},
-    {'value': 'corn', 'label': 'Mısır'},
-    {'value': 'cotton', 'label': 'Pamuk'},
-    {'value': 'sunflower', 'label': 'Ayçiçeği'},
-    {'value': 'tomato', 'label': 'Domates'},
-    {'value': 'grape', 'label': 'Üzüm'},
-    {'value': 'olive', 'label': 'Zeytin'},
-    {'value': 'rice', 'label': 'Pirinç'},
-    {'value': 'soybean', 'label': 'Soya'},
+  // 10 crop types (stored values; shown translated via typeLabel).
+  static const _cropTypes = [
+    'wheat', 'sugar beet', 'corn', 'cotton', 'sunflower',
+    'tomato', 'grape', 'olive', 'rice', 'soybean',
   ];
 
-  // 10 livestock types.
-  final List<Map<String, String>> _livestockTypes = [
-    {'value': 'cow', 'label': 'İnek'},
-    {'value': 'sheep', 'label': 'Koyun'},
-    {'value': 'goat', 'label': 'Keçi'},
-    {'value': 'chicken', 'label': 'Tavuk'},
-    {'value': 'duck', 'label': 'Ördek'},
-    {'value': 'turkey', 'label': 'Hindi'},
-    {'value': 'bee', 'label': 'Arı'},
-    {'value': 'fish', 'label': 'Balık'},
-    {'value': 'buffalo', 'label': 'Manda'},
-    {'value': 'camel', 'label': 'Deve'},
+  // 10 livestock types (stored values; shown translated via typeLabel).
+  static const _livestockTypes = [
+    'cow', 'sheep', 'goat', 'chicken', 'duck',
+    'turkey', 'bee', 'fish', 'buffalo', 'camel',
   ];
 
   // Crop form controllers.
@@ -488,8 +474,8 @@ class _AddItemFormState extends State<_AddItemForm> {
                 ),
                 items: _cropTypes.map((type) {
                   return DropdownMenuItem<String>(
-                    value: type['value'],
-                    child: Text(type['label']!),
+                    value: type,
+                    child: Text(typeLabel(context, type)),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -564,8 +550,8 @@ class _AddItemFormState extends State<_AddItemForm> {
                 ),
                 items: _livestockTypes.map((type) {
                   return DropdownMenuItem<String>(
-                    value: type['value'],
-                    child: Text(type['label']!),
+                    value: type,
+                    child: Text(typeLabel(context, type)),
                   );
                 }).toList(),
                 onChanged: (value) {

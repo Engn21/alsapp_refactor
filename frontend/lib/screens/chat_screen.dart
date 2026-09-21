@@ -2,9 +2,40 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
+import '../services/disease_classifier_service.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/photo_picker.dart';
 import '../widgets/language_selector.dart';
+
+// What a photo sent from the chat shows. The chat isn't tied to one crop, so
+// the farmer says what it is: that picks the on-device model and restricts
+// the answer to that crop's own classes. Only what the shipped models can
+// actually diagnose is offered (see DiseaseClassifierService.availablePlantCrops);
+// everything else goes under "Other crop", which says so instead of guessing.
+class _PhotoSubject {
+  final String labelKey;
+  final IconData icon;
+  // Null for "other crop": no model covers it.
+  final DiagnosisModel? model;
+  final String? labelPrefix;
+
+  const _PhotoSubject(this.labelKey, this.icon, this.model, this.labelPrefix);
+}
+
+const _cattleSubject =
+    _PhotoSubject('Cattle', Icons.pets, DiagnosisModel.cattle, null);
+const _otherCropSubject =
+    _PhotoSubject('Other crop', Icons.help_outline, null, null);
+
+// Display order and translation key for each crop the plant model may cover.
+const _plantSubjectKeys = <String, String>{
+  'wheat': 'Wheat',
+  'olive': 'Olive',
+  'tomato': 'Tomato',
+  'corn': 'Corn',
+  'grape': 'Grape',
+};
 
 // AI farm assistant chat screen. Reached from the Dashboard app bar, next
 // to the notification bell. Messages render newest-first in a reversed
@@ -39,10 +70,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _sending = false;
   double? _lat;
   double? _lon;
+  List<_PhotoSubject> _photoSubjects = const [_cattleSubject];
 
   @override
   void initState() {
     super.initState();
+    _loadPhotoSubjects();
     _loadHistory().then((_) {
       if (widget.initialMessage != null && mounted) {
         _controller.text = widget.initialMessage!;
@@ -66,6 +99,20 @@ class _ChatScreenState extends State<ChatScreen> {
         ..clear()
         ..addAll(history.reversed);
       _loading = false;
+    });
+  }
+
+  Future<void> _loadPhotoSubjects() async {
+    final crops = await DiseaseClassifierService.availablePlantCrops();
+    if (!mounted) return;
+    setState(() {
+      _photoSubjects = [
+        for (final e in _plantSubjectKeys.entries)
+          if (crops.contains(e.key))
+            _PhotoSubject(e.value, Icons.eco_outlined, DiagnosisModel.plant,
+                plantLabelPrefixByCrop[e.key]),
+        _cattleSubject,
+      ];
     });
   }
 
@@ -158,6 +205,126 @@ class _ChatScreenState extends State<ChatScreen> {
     await _dispatch(outgoing);
   }
 
+  Future<_PhotoSubject?> _chooseSubject() {
+    // Scrollable: with every crop offered the list is taller than the default
+    // sheet (9/16 of the screen) on short phones and would overflow.
+    return showModalBottomSheet<_PhotoSubject>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Text(
+                  ctx.tr('What is in the photo?'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 16),
+                ),
+              ),
+              for (final subject in [..._photoSubjects, _otherCropSubject])
+                ListTile(
+                  leading: Icon(subject.icon),
+                  title: Text(ctx.tr(subject.labelKey)),
+                  onTap: () => Navigator.pop(ctx, subject),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Photo diagnosis runs entirely on-device with our own trained models -
+  // the photo never goes to the LLM. The result is shown as a normal
+  // exchange in the chat and saved to the conversation, so a follow-up text
+  // question ("what should I do?") reaches the assistant with it as context.
+  Future<void> _sendPhoto() async {
+    if (_sending) return;
+    final subject = await _chooseSubject();
+    if (subject == null || !mounted) return;
+
+    final model = subject.model;
+    if (model == null) {
+      // No model for this crop: say so plainly rather than guessing, and
+      // point at the text chat, which can still help. Not saved to history.
+      setState(() {
+        _messages.insert(
+          0,
+          ChatMessage(
+            id: 'local-note-${DateTime.now().microsecondsSinceEpoch}',
+            role: 'assistant',
+            content: context.tr(
+                'Photo diagnosis is not available for this crop yet. Describe what you see - leaf colour, spots, how much of the field is affected - and I will help from that.'),
+            createdAt: DateTime.now(),
+          ),
+        );
+      });
+      return;
+    }
+
+    final photo = await pickPhoto(context);
+    if (photo == null || !mounted) return;
+
+    setState(() => _sending = true);
+    final result = await DiseaseClassifierService.classify(
+      photo,
+      model,
+      labelPrefix: subject.labelPrefix,
+    );
+    if (!mounted) return;
+
+    if (result == null) {
+      setState(() => _sending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(context.tr('Diagnosis model is not available yet.'))),
+      );
+      return;
+    }
+
+    final userText = context.tr('Photo: {subject}',
+        params: {'subject': context.tr(subject.labelKey)});
+    final replyText = [
+      result.prettyLabel,
+      context.tr('{value}% confidence',
+          params: {'value': result.confidencePercent}),
+      '',
+      context.tr(
+          'This is an AI estimate from an on-device model, not a confirmed diagnosis.'),
+    ].join('\n');
+
+    final stamp = DateTime.now();
+    final id = stamp.microsecondsSinceEpoch;
+    setState(() {
+      _sending = false;
+      _messages.insert(
+        0,
+        ChatMessage(
+            id: 'local-photo-$id',
+            role: 'user',
+            content: userText,
+            createdAt: stamp),
+      );
+      _messages.insert(
+        0,
+        ChatMessage(
+          id: 'local-photo-reply-$id',
+          role: 'assistant',
+          content: replyText,
+          createdAt: stamp,
+        ),
+      );
+    });
+
+    await ChatService.savePhotoDiagnosis(
+        widget.conversationId, userText, replyText);
+  }
+
   Widget _bubble(ChatMessage m) {
     final isUser = m.isUser;
     final bg = isUser
@@ -239,8 +406,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               const SizedBox(height: 12),
                               Text(
                                 context.tr('No messages yet'),
-                                style:
-                                    const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -266,6 +433,12 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    color: AppTheme.primary,
+                    tooltip: context.tr('Send a photo for diagnosis'),
+                    onPressed: _sending ? null : _sendPhoto,
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _controller,

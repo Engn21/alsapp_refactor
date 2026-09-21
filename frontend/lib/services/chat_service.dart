@@ -99,6 +99,27 @@ class ChatService {
     return const <ChatMessage>[];
   }
 
+  /// Stores a photo diagnosis (made on-device, no LLM call) as an exchange in
+  /// the conversation. Best-effort: the result is already on screen, so a
+  /// failure only means it won't be in the history next time.
+  static Future<bool> savePhotoDiagnosis(
+    String conversationId,
+    String userText,
+    String replyText,
+  ) async {
+    try {
+      final r = await _dio.post(
+        '/assistant/conversations/$conversationId/photo-diagnosis',
+        data: {'userText': userText, 'replyText': replyText},
+        options: _authOptions(),
+      );
+      return r.statusCode == 204;
+    } catch (e) {
+      debugPrint('[ChatService] savePhotoDiagnosis() failed: $e');
+      return false;
+    }
+  }
+
   static Future<ChatSendResult> send(
     String conversationId,
     String message, {

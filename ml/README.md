@@ -14,10 +14,15 @@ touches your machine's disk) rather than installing TensorFlow locally.
 
 ## Notebooks
 
-- **`plant_disease_train.ipynb`** - PlantVillage dataset (38 classes, 14
-  crop species, ~54k images, auto-downloaded via `tensorflow_datasets`,
-  no auth needed). Just open in Colab, set the runtime to a T4 GPU, and
-  run all cells top to bottom.
+- **`plant_disease_train.ipynb`** - PlantVillage (38 classes, 14 crop
+  species, ~54k lab-style leaf photos, auto-downloaded via
+  `tensorflow_datasets`) **plus wheat and olive field photos** from Kaggle
+  (PlantVillage has neither, and they're this app's main crops). Labels are
+  `<Crop>___<Condition>`. Open in Colab, set the runtime to a T4 GPU, add the
+  same `KAGGLE_USERNAME` / `KAGGLE_KEY` secrets as for the cattle notebook,
+  and run all cells top to bottom. The notebook prints what it found in each
+  Kaggle dataset - check that table - and ends with a **per-crop accuracy**
+  printout: look at the Wheat and Olive lines before shipping.
 - **`cattle_disease_train.ipynb`** - a Kaggle cattle-disease dataset
   (healthy / lumpy skin disease / foot-and-mouth disease, ~3.2k images).
   Needs a free Kaggle API token (kaggle.com -> Settings -> API -> Create
@@ -39,6 +44,18 @@ Each notebook ends by downloading two files. Drop them straight into
 No code changes needed - the app already points at these exact paths
 (`frontend/lib/services/disease_classifier_service.dart`). Just
 `flutter run` again after replacing them.
+
+Which crops the app offers photo diagnosis for is read from
+`plant_labels.txt` itself: a crop (wheat, olive, tomato, corn, grape - see
+`plantLabelPrefixByCrop`) appears in the chat and on its detail page only if
+the labels contain its `<Crop>___` prefix. So the wheat/olive options switch
+on the moment a model trained with them is dropped in, and stay off (with an
+"Other crop" explanation in the chat) until then.
+
+**Export as plain float32.** Don't set `converter.optimizations`: current
+TensorFlow then emits `FULLY_CONNECTED` v12, which the TFLite runtimes
+`tflite_flutter` bundles for macOS (2.11) and iOS (2.12) can't load
+(`Unable to create interpreter`). Both notebooks already do this.
 
 ## Sanity-checking accuracy
 

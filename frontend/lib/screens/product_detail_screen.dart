@@ -1,11 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/chat_service.dart';
 import '../services/disease_classifier_service.dart';
 import '../l10n/app_localizations.dart';
 import '../data/type_fields.dart';
+import '../utils/photo_picker.dart';
+import '../utils/type_labels.dart';
 import '../widgets/type_specific_fields.dart';
 import 'chat_screen.dart';
 
@@ -120,21 +121,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return species == 'cow';
   }
 
-  // The plant model is trained on PlantVillage, which covers only a handful
-  // of the app's crop types. Anything else (wheat, olive, cotton, ...) would
-  // get a confident answer about the wrong species, so it isn't offered.
-  // Soybean is left out on purpose: PlantVillage has only a "healthy" class
-  // for it, so the model could never report a disease.
-  static const _plantModelLabelPrefix = {
-    'corn': 'Corn_(maize)___',
-    'tomato': 'Tomato___',
-    'grape': 'Grape___',
-  };
+  // Crops the shipped plant model has labels for (loaded once in initState).
+  Set<String> _diagnosableCrops = const {};
 
+  // Only crops the plant model was trained on can be diagnosed - anything
+  // else would get a confident answer about the wrong species.
   String? get _cropLabelPrefix {
     if (!_isCrop) return null;
     final type = _source['cropType']?.toString().trim().toLowerCase();
-    return type == null ? null : _plantModelLabelPrefix[type];
+    if (type == null || !_diagnosableCrops.contains(type)) return null;
+    return plantLabelPrefixByCrop[type];
   }
 
   bool get _canDiagnoseWithPhoto => _cropLabelPrefix != null || _isCattle;
@@ -142,29 +138,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _diagnosing = false;
 
   Future<void> _diagnoseWithPhoto() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: Text(context.tr('Take a photo')),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: Text(context.tr('Choose from gallery')),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null || !mounted) return;
-
-    final picked = await ImagePicker().pickImage(source: source, maxWidth: 1024);
+    final picked = await pickPhoto(context);
     if (picked == null || !mounted) return;
 
     setState(() => _diagnosing = true);
@@ -184,9 +158,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
-    final prettyLabel =
-        result.label.replaceAll('___', ' - ').replaceAll('_', ' ').trim();
-    final confidencePct = (result.confidence * 100).clamp(0, 100).toStringAsFixed(0);
+    final prettyLabel = result.prettyLabel;
+    final confidencePct = result.confidencePercent;
 
     if (!mounted) return;
     await showDialog<void>(
@@ -227,9 +200,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _askAssistantAboutDiagnosis(String label, String confidencePct) async {
     final data = _source;
-    final subject = _isCrop
-        ? (data['cropType'] ?? data['name'] ?? context.tr('crop')).toString()
-        : (data['name'] ?? context.tr('cattle')).toString();
+    final subject = typeLabel(
+        context,
+        _isCrop
+            ? (data['cropType'] ?? data['name'] ?? context.tr('crop')).toString()
+            : (data['name'] ?? context.tr('cattle')).toString());
     final message = context.tr(
       'Photo analysis: {subject} - {finding} ({confidence}% confidence). What should I do?',
       params: {'subject': subject, 'finding': label, 'confidence': confidencePct},
@@ -258,6 +233,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _load();
+    DiseaseClassifierService.availablePlantCrops().then((crops) {
+      if (mounted) setState(() => _diagnosableCrops = crops);
+    });
   }
 
   @override
@@ -965,7 +943,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           spacing: 12,
           runSpacing: 8,
           children: [
-            _infoChip(context.tr('Crop type'), data['cropType']?.toString()),
+            _infoChip(
+                context.tr('Crop type'),
+                data['cropType'] == null
+                    ? null
+                    : typeLabel(context, data['cropType'].toString())),
             _infoChip(context.tr('Area (ha)'),
                 (data['areaHectares'] ?? '—').toString()),
             _infoChip(context.tr('Next spray due'), nextSprayDisplay),
@@ -1344,9 +1326,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final highlightCard = detail != null ? _buildHighlightCards(detail!) : null;
     final typeSpecificCard =
         detail != null ? _buildTypeSpecificDetails(detail!) : null;
-    final title = (data['name'] ?? data['cropType'] ?? data['species'] ??
-            data['animalType'] ?? context.tr('Product'))
-        .toString();
+    final title = typeLabel(
+        context,
+        (data['name'] ?? data['cropType'] ?? data['species'] ??
+                data['animalType'] ?? context.tr('Product'))
+            .toString());
 
     return Scaffold(
       appBar: AppBar(
