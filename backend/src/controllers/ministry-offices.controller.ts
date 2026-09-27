@@ -10,6 +10,7 @@ function serializeMinistryOffice(office: {
   phone: string;
   lat: number;
   lon: number;
+  country: string;
 }) {
   return {
     id: office.id,
@@ -19,6 +20,7 @@ function serializeMinistryOffice(office: {
     phone: office.phone,
     lat: office.lat,
     lon: office.lon,
+    country: office.country,
   };
 }
 
@@ -30,7 +32,11 @@ export async function listMinistryOffices(
   next: NextFunction,
 ) {
   try {
+    // Defaults to Turkey for backward compatibility with clients that
+    // don't send this param yet.
+    const country = (req.query.country as string) || "TR";
     const offices = await prisma.ministryOffice.findMany({
+      where: { country },
       orderBy: { province: "asc" },
     });
     res.json(offices.map(serializeMinistryOffice));

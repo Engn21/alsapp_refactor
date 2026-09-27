@@ -2,6 +2,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
   tr: "Türkçe",
   fr: "Français",
+  es: "Español",
 };
 
 export function buildSystemPrompt(lang: string): string {

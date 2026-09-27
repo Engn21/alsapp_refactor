@@ -4,7 +4,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-16+-success?logo=node.js)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue?logo=postgresql)](https://www.postgresql.org)
 [![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?logo=prisma)](https://www.prisma.io)
-[![License](https://img.shields.io/badge/License-Academic-orange)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **For detailed information about the application, visit our website: [tarimhayvancilikdestek.com.tr](https://tarimhayvancilikdestek.com.tr)**
 
@@ -35,7 +35,7 @@ ALSApp (Agriculture and Livestock Support Application) is a comprehensive digita
 - **Real-time tracking** of crops and livestock with type-specific metrics
 - **Weather alerts** with agricultural recommendations
 - **Government support program discovery** from the Ministry of Agriculture and Forestry
-- **Multi-language support** (Turkish, English, French)
+- **Multi-language support** (Turkish, English, French, Spanish)
 - **Cross-platform mobile app** built with Flutter
 
 The system bridges the gap between traditional farming practices and modern digital technologies, making agricultural management accessible to farmers of all technical skill levels.
@@ -411,11 +411,12 @@ class ApiConfig {
 
 ## Localization
 
-ALSApp supports three languages:
+ALSApp supports four languages:
 
 - 🇬🇧 **English** (en)
 - 🇹🇷 **Turkish** (tr)
 - 🇫🇷 **French** (fr)
+- 🇪🇸 **Spanish** (es)
 
 Translation strings are managed in `frontend/lib/l10n/app_localizations.dart`.
 
@@ -499,7 +500,9 @@ We welcome contributions! Please follow these steps:
 
 ## License
 
-This project is developed for academic purposes at TED University, Department of Computer Engineering.
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Engin Samet Dede. Originally developed as an academic project at TED University, Department of Computer Engineering.
 
 ---
 
@@ -512,6 +515,6 @@ This project is developed for academic purposes at TED University, Department of
 </p>
 
 <p align="center">
-  © 2025 TED University - Department of Computer Engineering
+  © 2026 Engin Samet Dede · TED University - Department of Computer Engineering
 </p>
 

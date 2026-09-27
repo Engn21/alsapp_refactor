@@ -659,4 +659,42 @@ export const ministryOfficeSeeds = [
     lat: 40.8438,
     lon: 31.1565,
   },
+
+  // ==================== INTERNATIONAL HEADQUARTERS (added 2026-09-27 for
+  // the CIHEAM Spain presentation) ====================
+  //
+  // One national institution headquarters per new country, not a full
+  // regional office network like the 81 Turkish entries above - name/
+  // address/phone were recalled from general knowledge, not verified
+  // against a live official source the way the Turkish list explicitly
+  // was (see the file header). Double-check the phone number and exact
+  // address on the linked ministry site before relying on them publicly
+  // (e.g. before actually dialing one live in front of an audience).
+  {
+    province: "Bern",
+    name: "Office fédéral de l'agriculture (OFAG) / Bundesamt für Landwirtschaft (BLW)",
+    address: "Mattenhofstrasse 5, 3003 Bern, Suisse",
+    phone: "+41 58 462 25 11",
+    lat: 46.9480,
+    lon: 7.4474,
+    country: "CH",
+  },
+  {
+    province: "Paris",
+    name: "Ministère de l'Agriculture et de la Souveraineté Alimentaire",
+    address: "78 Rue de Varenne, 75007 Paris, France",
+    phone: "+33 1 49 55 49 55",
+    lat: 48.8546,
+    lon: 2.3210,
+    country: "FR",
+  },
+  {
+    province: "Madrid",
+    name: "Ministerio de Agricultura, Pesca y Alimentación (MAPA)",
+    address: "Paseo Infanta Isabel, 1, 28014 Madrid, España",
+    phone: "+34 913 47 50 00",
+    lat: 40.4055,
+    lon: -3.6910,
+    country: "ES",
+  },
 ];

@@ -9,9 +9,12 @@ function getCoords(req: Request) {
 
 // OpenWeather only localizes `description` (e.g. "broken clouds"), not the
 // fixed English `main` condition code (e.g. "Clouds") - that part is
-// translated client-side instead. tr/en/fr are all supported by their API.
+// translated client-side instead. tr/en/fr/es are all supported by their
+// API, but OpenWeather's own code for Spanish is "sp", not the ISO "es"
+// the rest of this app uses - translate it right before the request.
 function getLang(req: Request): string {
   const lang = (req.body?.lang ?? req.query.lang ?? "en").toString();
+  if (lang === "es") return "sp";
   return ["tr", "en", "fr"].includes(lang) ? lang : "en";
 }
 

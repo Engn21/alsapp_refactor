@@ -28,6 +28,7 @@ class SupportService {
   /// programs matching the farmer's own crops/livestock.
   static Future<List<Map<String, dynamic>>> fetchSupportPrograms({
     String lang = 'tr',
+    String country = 'TR',
   }) async {
     final token = ApiService.session?.token;
     final authHeaders = token != null ? {'Authorization': 'Bearer $token'} : <String, String>{};
@@ -35,7 +36,7 @@ class SupportService {
     // 1) Modern endpoint: GET /supports
     try {
       final r = await http
-          .get(Uri.parse('$_base/supports?lang=$lang'), headers: authHeaders)
+          .get(Uri.parse('$_base/supports?lang=$lang&country=$country'), headers: authHeaders)
           .timeout(const Duration(seconds: 15));
       if (r.statusCode == 200) {
         final supports = _parseSupports(jsonDecode(r.body));
@@ -48,7 +49,7 @@ class SupportService {
     // 2) Legacy endpoint: POST /dash (backend ignores the body; kept for
     // backward compatibility with older API deployments).
     final r = await http.post(
-      Uri.parse('$_base/dash?lang=$lang'),
+      Uri.parse('$_base/dash?lang=$lang&country=$country'),
       headers: {'Content-Type': 'application/json', ...authHeaders},
       body: jsonEncode({}),
     ).timeout(const Duration(seconds: 15));
@@ -58,7 +59,9 @@ class SupportService {
       if (supports.isNotEmpty) return supports;
     }
 
-    if (r.statusCode == 200 || r.statusCode == 404) {
+    // The bundled offline demo data is Turkish-only, so it would be
+    // misleading to show it while another country is selected.
+    if (country == 'TR' && (r.statusCode == 200 || r.statusCode == 404)) {
       // return the fallback if neither endpoint returned meaningful data
       final demoSupports = _demoSupports();
       if (demoSupports.isNotEmpty) return demoSupports;

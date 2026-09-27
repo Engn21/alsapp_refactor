@@ -5,6 +5,7 @@ import '../services/weather_service.dart';
 import '../theme/app_theme.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/bottom_navigation.dart';
+import '../widgets/country_scope.dart';
 import '../widgets/language_selector.dart';
 import '../utils/type_labels.dart';
 import 'product_list_screen.dart';

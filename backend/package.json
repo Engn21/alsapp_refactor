@@ -1,6 +1,8 @@
 {
   "name": "alsapp-backend",
   "version": "1.0.0",
+  "author": "Engin Samet Dede",
+  "license": "MIT",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",

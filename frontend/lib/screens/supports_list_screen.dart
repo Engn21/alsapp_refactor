@@ -3,6 +3,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/support_service.dart';
 import '../widgets/bottom_navigation.dart';
+import '../widgets/country_scope.dart';
+import '../widgets/country_selector.dart';
 import '../widgets/language_selector.dart';
 import '../l10n/app_localizations.dart';
 import 'dashboard_screen.dart';
@@ -25,17 +27,21 @@ class _SupportsListScreenState extends State<SupportsListScreen> {
   List<Map<String, dynamic>> supports = [];
   bool loading = true;
   String? _loadedLang;
+  String? _loadedCountry;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Localizations.localeOf needs an established InheritedWidget
-    // dependency, which isn't available in initState. Re-load whenever
-    // the resolved locale actually changes (e.g. the user switches
-    // language while this screen is open), not just on first mount.
+    // Localizations.localeOf/CountryScope.of both need an established
+    // InheritedWidget dependency, which isn't available in initState.
+    // Re-load whenever either actually changes (e.g. the user switches
+    // language or country while this screen is open), not just on first
+    // mount.
     final lang = Localizations.localeOf(context).languageCode;
-    if (_loadedLang != lang) {
+    final country = CountryScope.of(context).country;
+    if (_loadedLang != lang || _loadedCountry != country) {
       _loadedLang = lang;
+      _loadedCountry = country;
       _load();
     }
   }
@@ -44,7 +50,9 @@ class _SupportsListScreenState extends State<SupportsListScreen> {
   Future<void> _load() async {
     try {
       final lang = Localizations.localeOf(context).languageCode;
-      final data = await SupportService.fetchSupportPrograms(lang: lang);
+      final country = CountryScope.of(context).country;
+      final data =
+          await SupportService.fetchSupportPrograms(lang: lang, country: country);
       if (!mounted) return;
       setState(() => supports = data);
     } catch (e) {
@@ -105,7 +113,7 @@ class _SupportsListScreenState extends State<SupportsListScreen> {
             );
           },
         ),
-        actions: const [LanguageSelector()],
+        actions: const [CountrySelector(), LanguageSelector()],
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())

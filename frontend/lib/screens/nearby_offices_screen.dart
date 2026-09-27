@@ -8,12 +8,25 @@ import '../services/location_service.dart';
 import '../services/ministry_office_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/distance.dart';
+import '../widgets/country_scope.dart';
+import '../widgets/country_selector.dart';
 import '../widgets/language_selector.dart';
 
-// Turkey-wide fallback center/zoom used when the farmer's location isn't
-// known (permission denied) - keeps the map from being blank.
-const _turkeyCenter = LatLng(39.0, 35.0);
-const _turkeyZoom = 6.0;
+// Country-wide fallback center/zoom used when the farmer's location isn't
+// known (permission denied) - keeps the map from being blank, and puts it
+// somewhere sensible for whichever country's offices are being shown.
+const _countryCenters = {
+  'TR': LatLng(39.0, 35.0),
+  'CH': LatLng(46.8182, 8.2275),
+  'FR': LatLng(46.6034, 1.8883),
+  'ES': LatLng(40.4168, -3.7038),
+};
+const _countryZoom = {
+  'TR': 6.0,
+  'CH': 7.5,
+  'FR': 5.5,
+  'ES': 5.5,
+};
 const _maxMapMarkers = 10;
 
 class NearbyOfficesScreen extends StatefulWidget {
@@ -30,16 +43,27 @@ class _NearbyOfficesScreenState extends State<NearbyOfficesScreen> {
   double? _userLon;
   List<MinistryOffice> _offices = [];
   Map<String, double> _distanceKm = {};
+  String? _loadedCountry;
+  String _country = 'TR';
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // CountryScope.of needs an established InheritedWidget dependency,
+    // which isn't available in initState. Re-load whenever the selected
+    // country actually changes, not just on first mount.
+    final country = CountryScope.of(context).country;
+    if (_loadedCountry != country) {
+      _loadedCountry = country;
+      _country = country;
+      _load();
+    }
   }
 
   Future<void> _load() async {
+    setState(() => _loading = true);
     final results = await Future.wait([
-      MinistryOfficeService.list(),
+      MinistryOfficeService.list(country: _country),
       LocationService.getCoords(),
     ]);
     final offices = results[0] as List<MinistryOffice>;
@@ -111,8 +135,10 @@ class _NearbyOfficesScreenState extends State<NearbyOfficesScreen> {
   Widget _buildMap() {
     final center = (_userLat != null && _userLon != null)
         ? LatLng(_userLat!, _userLon!)
-        : _turkeyCenter;
-    final zoom = (_userLat != null && _userLon != null) ? 8.0 : _turkeyZoom;
+        : (_countryCenters[_country] ?? _countryCenters['TR']!);
+    final zoom = (_userLat != null && _userLon != null)
+        ? 8.0
+        : (_countryZoom[_country] ?? _countryZoom['TR']!);
 
     return SizedBox(
       height: 260,
@@ -195,7 +221,7 @@ class _NearbyOfficesScreenState extends State<NearbyOfficesScreen> {
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
         title: Text(context.tr('Nearby Offices')),
-        actions: const [LanguageSelector()],
+        actions: const [CountrySelector(), LanguageSelector()],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

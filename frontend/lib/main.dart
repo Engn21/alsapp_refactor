@@ -7,6 +7,7 @@ import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'navigation.dart';
+import 'widgets/country_scope.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,9 +41,21 @@ class ALSApp extends StatefulWidget {
 class _ALSAppState extends State<ALSApp> {
   Locale? _locale;
 
+  // Selected country for Support Programs / Nearby Offices ('TR', 'CH',
+  // 'FR', 'ES') - independent of the UI language, since a Turkish-speaking
+  // user may still want to browse Spanish support programs (e.g. for the
+  // CIHEAM demo) and vice versa.
+  String _country = 'TR';
+  String get country => _country;
+
   void setLocale(Locale locale) {
     if (!mounted) return;
     setState(() => _locale = locale);
+  }
+
+  void setCountry(String country) {
+    if (!mounted) return;
+    setState(() => _country = country);
   }
 
   @override
@@ -69,6 +82,11 @@ class _ALSAppState extends State<ALSApp> {
         }
         return supported.first;
       },
+      builder: (context, child) => CountryScope(
+        country: _country,
+        onChanged: setCountry,
+        child: child!,
+      ),
       home: const LoginScreen(),
     );
   }

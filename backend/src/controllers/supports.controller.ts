@@ -9,11 +9,12 @@ function toIso(date: Date | null | undefined) {
   return date ? date.toISOString() : null;
 }
 
-// Falls back to Turkish when a translation is missing (e.g. French
-// content isn't written yet - only tr/en have real translations today).
+// Falls back to Turkish when a translation is missing for the requested
+// language.
 function localized(program: any, lang: string, field: string) {
   if (lang === "en" && program[`${field}En`]) return program[`${field}En`];
   if (lang === "fr" && program[`${field}Fr`]) return program[`${field}Fr`];
+  if (lang === "es" && program[`${field}Es`]) return program[`${field}Es`];
   return program[field];
 }
 
@@ -92,6 +93,7 @@ export function serializeSupport(
     description: localized(program, lang, "description"),
     category: program.category,
     subcategory: program.subcategory ?? undefined,
+    country: program.country,
     amount: localized(program, lang, "amount"),
     eligibility: localized(program, lang, "eligibility"),
     requiredDocs: localized(program, lang, "requiredDocs"),
@@ -198,10 +200,14 @@ export async function listSupports(req: AuthedRequest, res: Response) {
     const status = (req.query.status as string) || "active";
     const cropType = req.query.cropType as string | undefined;
     const livestockType = req.query.livestockType as string | undefined;
+    // Defaults to Turkey for backward compatibility with clients that
+    // don't send this param yet.
+    const country = (req.query.country as string) || "TR";
 
     // Build where clause
     const where: any = {
       status: status,
+      country: country,
     };
 
     // A program stored as "active" whose deadline has already passed

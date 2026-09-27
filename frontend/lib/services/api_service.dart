@@ -814,6 +814,7 @@ static Future<List<dynamic>> listProductsCombined() async {
     String? livestockType,
     String? status = 'active',
     String? lang = 'tr',
+    String? country = 'TR',
     String? token,
   }) async {
     final queryParams = <String, String>{
@@ -822,6 +823,7 @@ static Future<List<dynamic>> listProductsCombined() async {
       if (livestockType != null) 'livestockType': livestockType,
       if (status != null) 'status': status,
       if (lang != null) 'lang': lang,
+      if (country != null) 'country': country,
     };
 
     final uri = Uri.parse('$_baseUrl/supports').replace(queryParameters: queryParams);

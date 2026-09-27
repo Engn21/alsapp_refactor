@@ -33,6 +33,11 @@ const CANNED_REPLIES: Record<string, Record<"lookupFailed" | "rephrase" | "unfin
     rephrase: "Je ne sais pas comment répondre à cela - pouvez-vous reformuler ?",
     unfinished: "J'ai regardé plusieurs choses sans pouvoir conclure - pouvez-vous reformuler votre question ?",
   },
+  es: {
+    lookupFailed: "No puedo consultar eso en este momento - inténtalo de nuevo en un momento.",
+    rephrase: "No estoy seguro de cómo responder a eso - ¿podrías reformularlo?",
+    unfinished: "Revisé varias cosas pero no pude llegar a una conclusión - ¿podrías reformular tu pregunta?",
+  },
 };
 
 function cannedReply(lang: string, key: "lookupFailed" | "rephrase" | "unfinished"): string {

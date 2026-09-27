@@ -6,11 +6,12 @@ import 'api_service.dart';
 class MinistryOfficeService {
   static final Dio _dio = Dio(BaseOptions(baseUrl: ApiService.baseUrl));
 
-  static Future<List<MinistryOffice>> list() async {
+  static Future<List<MinistryOffice>> list({String country = 'TR'}) async {
     try {
       final token = ApiService.session?.token;
       final r = await _dio.get(
         '/ministry-offices',
+        queryParameters: {'country': country},
         options: Options(
           headers: token != null ? {'Authorization': 'Bearer $token'} : null,
         ),

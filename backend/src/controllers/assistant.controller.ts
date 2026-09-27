@@ -21,7 +21,7 @@ const NEWEST_FIRST: Prisma.AssistantMessageOrderByWithRelationInput[] = [
 
 const SendMessageDto = z.object({
   message: z.string().trim().min(1).max(4000),
-  lang: z.enum(["en", "tr", "fr"]).optional(),
+  lang: z.enum(["en", "tr", "fr", "es"]).optional(),
   lat: z.number().optional(),
   lon: z.number().optional(),
 });

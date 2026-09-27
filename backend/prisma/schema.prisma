@@ -214,31 +214,38 @@ model SupportProgram {
   title       String
   titleEn     String?
   titleFr     String?
+  titleEs     String?
   description String?
   descriptionEn String?
   descriptionFr String?
+  descriptionEs String?
   category    String   // 'bitkisel', 'hayvansal', 'kirsal_kalkinma', 'kredi', 'diger'
   subcategory String?  // 'mazot_gubre', 'tohum', 'sut', 'et', vb.
   amount      String?  // örn: "1500 TL/dekar", "flexible"
   amountEn    String?
   amountFr    String?
+  amountEs    String?
   eligibility String?  // Kimler başvurabilir
   eligibilityEn String?
   eligibilityFr String?
+  eligibilityEs String?
   requiredDocs String? // Gerekli belgeler
   requiredDocsEn String?
   requiredDocsFr String?
+  requiredDocsEs String?
   applicationStart DateTime?
   applicationDeadline DateTime?
   link        String?
   provider    String?  // Sorumlu kurum (örn: "Tarım ve Orman Bakanlığı")
   providerEn  String?
   providerFr  String?
+  providerEs  String?
   officialGazetteUrl String?
   status      String   @default("active") // 'active', 'expired', 'coming_soon'
   targetCrops String?  // JSON array: ["wheat", "corn"]
   targetLivestock String? // JSON array: ["cow", "sheep"]
   region      String?  // Bölgesel ise
+  country     String   @default("TR") // ISO 3166-1 alpha-2: 'TR', 'CH', 'FR', 'ES'
   priority    Int      @default(0) // Sıralama için
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -246,6 +253,7 @@ model SupportProgram {
   @@index([category])
   @@index([status])
   @@index([applicationDeadline])
+  @@index([country])
 }
 
 model WeatherAlert {
@@ -268,10 +276,12 @@ model MinistryOffice {
   phone     String            // normalized display format, e.g. "0322 xxx xx xx"
   lat       Float
   lon       Float
+  country   String   @default("TR") // ISO 3166-1 alpha-2: 'TR', 'CH', 'FR', 'ES'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([province])
+  @@index([country])
 }
 
 model MarketListing {

@@ -25,16 +25,27 @@ class LanguageSelector extends StatelessWidget {
                   else
                     const SizedBox(width: 16),
                   const SizedBox(width: 8),
-                  Text(locale.languageCode == 'en'
-                      ? context.tr('English')
-                      : locale.languageCode == 'tr'
-                          ? context.tr('Turkish')
-                          : context.tr('French')),
+                  Text(context.tr(_languageNameKey(locale.languageCode))),
                 ],
               ),
             ),
           )
           .toList(),
     );
+  }
+
+  // Maps a language code to the translation key for its display name.
+  String _languageNameKey(String languageCode) {
+    switch (languageCode) {
+      case 'tr':
+        return 'Turkish';
+      case 'fr':
+        return 'French';
+      case 'es':
+        return 'Spanish';
+      case 'en':
+      default:
+        return 'English';
+    }
   }
 }
