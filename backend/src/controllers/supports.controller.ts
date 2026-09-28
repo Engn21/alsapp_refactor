@@ -170,10 +170,15 @@ async function maybeNotifyUpcomingDeadlines(
 // read-only AI lookup must not have the side effect of creating
 // notification rows (that side effect belongs only to the user-initiated
 // Supports screen fetch in listSupports below).
-export async function listMatchedSupportPrograms(owner: string, lang: string) {
+export async function listMatchedSupportPrograms(
+  owner: string,
+  lang: string,
+  country: string = "TR",
+) {
   const programs = await prisma.supportProgram.findMany({
     where: {
       status: "active",
+      country,
       OR: [
         { applicationDeadline: null },
         { applicationDeadline: { gte: new Date() } },

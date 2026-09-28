@@ -7,6 +7,9 @@ import { listNotifications } from "../notifications";
 export interface ToolCtx {
   userId: string;
   lang: string;
+  // Country selected in the app for Support Programs ('TR', 'CH', 'FR',
+  // 'ES') - the default for get_support_programs, overridable per call.
+  country?: string;
   lat?: number;
   lon?: number;
 }
@@ -22,6 +25,8 @@ const MAX_RECORDS: Record<string, number> = {
   get_notifications: 20,
 };
 const MAX_JSON_CHARS = 6000;
+
+const SUPPORTED_COUNTRIES = ["TR", "CH", "FR", "ES"];
 
 function toToolResult(toolName: string, data: unknown[]): string {
   const max = MAX_RECORDS[toolName];
@@ -77,7 +82,11 @@ export const toolExecutors: Record<
   },
 
   async get_support_programs(input, ctx) {
-    let programs = await listMatchedSupportPrograms(ctx.userId, ctx.lang);
+    const requested = input?.country?.toString().toUpperCase();
+    const country = SUPPORTED_COUNTRIES.includes(requested)
+      ? requested
+      : ctx.country ?? "TR";
+    let programs = await listMatchedSupportPrograms(ctx.userId, ctx.lang, country);
     if (input?.category) {
       const needle = input.category.toString().toLowerCase();
       programs = programs.filter((p: any) => p.category?.toLowerCase() === needle);

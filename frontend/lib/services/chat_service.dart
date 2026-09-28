@@ -124,6 +124,7 @@ class ChatService {
     String conversationId,
     String message, {
     required String lang,
+    String country = 'TR',
     double? lat,
     double? lon,
   }) async {
@@ -133,6 +134,7 @@ class ChatService {
         data: {
           'message': message,
           'lang': lang,
+          'country': country,
           if (lat != null) 'lat': lat,
           if (lon != null) 'lon': lon,
         },

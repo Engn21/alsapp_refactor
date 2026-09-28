@@ -366,6 +366,10 @@ class _SupportDetailScreenState extends State<SupportDetailScreen> {
         : updatedAtRaw;
     final officialGazetteUrl = item['officialGazetteUrl']?.toString();
     final institutionUrl = (item['institutionUrl'] ?? item['link'])?.toString();
+    // e-Devlet/ÇKS is Turkey's portal - other countries' programs apply
+    // through their own institution's site (the Ministry Page button).
+    // Items without a country (bundled offline demo data) are Turkish.
+    final isTurkish = (item['country']?.toString() ?? 'TR') == 'TR';
 
     return Scaffold(
       appBar: AppBar(
@@ -460,13 +464,15 @@ class _SupportDetailScreenState extends State<SupportDetailScreen> {
                             'This app only helps you discover support programs - it does not submit applications.'),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.badge_outlined, size: 18),
-                        label: Text(context.tr('Apply via e-Devlet / ÇKS')),
-                        onPressed: () =>
-                            _openLink(context, 'https://www.turkiye.gov.tr'),
-                      ),
+                      if (isTurkish) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.badge_outlined, size: 18),
+                          label: Text(context.tr('Apply via e-Devlet / ÇKS')),
+                          onPressed: () =>
+                              _openLink(context, 'https://www.turkiye.gov.tr'),
+                        ),
+                      ],
                     ],
                   ),
                 ),

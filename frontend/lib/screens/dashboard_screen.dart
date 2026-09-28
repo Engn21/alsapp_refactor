@@ -55,23 +55,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const double _windHighThreshold = 10.0; // m/s (≈36 km/h)
 
   String? _loadedLang;
+  String? _loadedCountry;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Localizations.localeOf needs an established InheritedWidget
-    // dependency, which isn't available in initState. Re-load whenever
-    // the resolved locale actually changes (e.g. the user switches
-    // language while this screen is open), not just on first mount.
+    // Localizations.localeOf/CountryScope.of both need an established
+    // InheritedWidget dependency, which isn't available in initState.
+    // Re-load whenever either actually changes (e.g. the user switches
+    // language or country while this screen is open), not just on first
+    // mount.
     final lang = Localizations.localeOf(context).languageCode;
-    if (_loadedLang != lang) {
+    final country = CountryScope.of(context).country;
+    if (_loadedLang != lang || _loadedCountry != country) {
       _loadedLang = lang;
+      _loadedCountry = country;
       _load();
     }
   }
 
   Future<void> _load() async {
     final lang = Localizations.localeOf(context).languageCode;
+    final country = CountryScope.of(context).country;
     // Precomputed before any `await` below so we never touch BuildContext
     // across an async gap - OpenWeather's `main` field is a fixed small
     // English enum (Clear/Clouds/Rain/...), so this covers every value.
@@ -126,12 +131,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }(),
       () async {
         try {
-          final sup = await ApiService.listSupports(status: 'active', lang: lang);
+          final sup = await ApiService.listSupports(
+              status: 'active', lang: lang, country: country);
           final primary = sup.map(_ensureMap).where((m) => m.isNotEmpty).toList();
           List<Map<String, dynamic>> merged = List<Map<String, dynamic>>.from(primary);
           if (merged.length < 3) {
             try {
-              final fallback = await SupportService.fetchSupportPrograms(lang: lang);
+              final fallback = await SupportService.fetchSupportPrograms(
+                  lang: lang, country: country);
               merged = _mergeSupports(merged, fallback.map(_ensureMap).where((m) => m.isNotEmpty).toList());
             } catch (err) {
               debugPrint('[dashboard] fallback supports failed: $err');

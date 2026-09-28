@@ -6,6 +6,7 @@ import '../services/disease_classifier_service.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/photo_picker.dart';
+import '../widgets/country_scope.dart';
 import '../widgets/language_selector.dart';
 
 // What a photo sent from the chat shows. The chat isn't tied to one crop, so
@@ -153,10 +154,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _dispatch(ChatMessage outgoing) async {
     final lang = Localizations.localeOf(context).languageCode;
+    final country = CountryScope.of(context).country;
     final result = await ChatService.send(
       widget.conversationId,
       outgoing.content,
       lang: lang,
+      country: country,
       lat: _lat,
       lon: _lon,
     );

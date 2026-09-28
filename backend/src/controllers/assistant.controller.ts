@@ -22,6 +22,7 @@ const NEWEST_FIRST: Prisma.AssistantMessageOrderByWithRelationInput[] = [
 const SendMessageDto = z.object({
   message: z.string().trim().min(1).max(4000),
   lang: z.enum(["en", "tr", "fr", "es"]).optional(),
+  country: z.enum(["TR", "CH", "FR", "ES"]).optional(),
   lat: z.number().optional(),
   lon: z.number().optional(),
 });
@@ -126,7 +127,7 @@ export async function sendMessage(req: AuthedRequest, res: Response, next: NextF
     let turn;
     try {
       turn = await runAssistantTurn(
-        { userId: owner, lang, lat: dto.lat, lon: dto.lon },
+        { userId: owner, lang, country: dto.country ?? "TR", lat: dto.lat, lon: dto.lon },
         history,
         dto.message,
       );

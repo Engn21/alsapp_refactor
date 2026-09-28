@@ -77,6 +77,12 @@ export const ASSISTANT_TOOLS: ChatCompletionTool[] = [
             description:
               "Optional filter, e.g. 'bitkisel' (crop), 'hayvansal' (livestock), 'kredi' (credit). Omit to get all matched programs.",
           },
+          country: {
+            type: "string",
+            enum: ["TR", "CH", "FR", "ES"],
+            description:
+              "Optional country (ISO code): TR = Turkey, CH = Switzerland, FR = France, ES = Spain. Omit to use the country the farmer selected in the app; only set it when they explicitly ask about another country.",
+          },
         },
       },
     },

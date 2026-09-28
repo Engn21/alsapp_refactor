@@ -106,7 +106,7 @@ export async function runAssistantTurn(
 ): Promise<AssistantTurnResult> {
   const client = getGroqClient();
   const messages: ChatCompletionMessageParam[] = [
-    { role: "system", content: buildSystemPrompt(ctx.lang) },
+    { role: "system", content: buildSystemPrompt(ctx.lang, ctx.country) },
     ...history,
     { role: "user", content: userMessage },
   ];
